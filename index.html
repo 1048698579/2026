@@ -1,267 +1,427 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>🌻 口算塔防</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
-        html, body {
-            width: 100%; height: 100%; overflow: hidden;
-            background: #1a1a2e; display: flex; justify-content: center; align-items: center;
-            font-family: "Segoe UI", "PingFang SC", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
-            touch-action: none; position: fixed; top: 0; left: 0;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
-        #rotateHint { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; font-size: 24px; justify-content: center; align-items: center; flex-direction: column; z-index: 999; text-align: center; padding: 40px; }
-        #rotateHint .icon { font-size: 80px; animation: rotatePhone 2s infinite; }
-        @keyframes rotatePhone { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
-        @media (orientation: portrait) { #rotateHint { display: flex !important; } }
-        @media (orientation: landscape) { #rotateHint { display: none !important; } }
-        #gameWrapper { position: relative; background: #2d4a22; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); overflow: hidden; width: 100vw; height: 100vh; max-width: 100%; max-height: 100%; touch-action: none; }
-        #gameCanvas { display: block; width: 100%; height: 100%; background: #4a7c3f; cursor: pointer; touch-action: none; image-rendering: auto; }
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; color: white;
-            padding: 10px 20px; text-align: center; backdrop-filter: blur(6px);
-            z-index: 10; gap: 4px; overflow-y: auto;
-        }
-        #overlay.hidden { display: none; }
-        #overlay h1 { font-size: clamp(20px, 4vw, 36px); text-shadow: 0 4px 20px rgba(0,0,0,0.6); font-family: inherit; margin-bottom: 2px; }
-        #overlay p { font-size: clamp(12px, 1.6vw, 18px); opacity: 0.9; max-width: 90%; font-family: inherit; }
-        #overlay input[type="number"],
-        #overlay input[type="text"],
-        #overlay input[type="password"] {
-            padding: 6px 12px;
-            font-size: clamp(14px, 1.6vw, 20px);
-            border: none;
-            border-radius: 30px;
-            text-align: center;
-            background: #f0f0f0;
-            color: #222;
-            outline: 2px solid #f5b041;
-            font-weight: bold;
-            font-family: inherit;
-            transition: outline-color 0.3s, transform 0.1s;
-            height: 36px;
-        }
-        #overlay input:focus { outline: 4px solid #f39c12; }
-        #overlay input.error {
-            outline-color: #e74c3c !important;
-            animation: shake 0.4s ease;
-        }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            20% { transform: translateX(-8px); }
-            40% { transform: translateX(8px); }
-            60% { transform: translateX(-4px); }
-            80% { transform: translateX(4px); }
-        }
-        #ageInput { width: 70px; }
-        #nameInput { width: 120px; font-size: 14px; }
-        #activationInput { width: 140px; font-size: 14px; letter-spacing: 2px; }
-
-        .btn {
-            padding: 8px 24px;
-            font-size: clamp(14px, 2vw, 22px);
-            border: none;
-            border-radius: 40px;
-            background: linear-gradient(145deg, #f5b041, #e67e22);
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 0 #b85e0e;
-            transition: 0.08s linear;
-            touch-action: manipulation;
-            font-family: inherit;
-            opacity: 0.5;
-            pointer-events: none;
-            margin-top: 4px;
-        }
-        .btn.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .btn.active:active { transform: translateY(3px); box-shadow: 0 1px 0 #b85e0e; }
-        .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b85e0e; }
-
-        #statusMsg {
-            position: absolute; top: 8%; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.75); color: #f1c40f; padding: 2px 12px;
-            border-radius: 20px; font-size: clamp(12px, 1.8vw, 20px); font-weight: bold;
-            pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 5;
-            border: 2px solid #f1c40f; white-space: nowrap; font-family: inherit;
-        }
-        #statusMsg.show { opacity: 1; }
-        #timeDisplay {
-            position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.7); color: #f1c40f; padding: 1px 16px;
-            border-radius: 12px; font-size: clamp(16px, 2.2vw, 28px); font-weight: bold;
-            z-index: 3; border: 2px solid #f1c40f; letter-spacing: 2px; font-family: inherit;
-        }
-        #titleDisplay {
-            position: absolute; top: 44px; right: 12px; z-index: 3;
-            color: #f1c40f; font-size: clamp(12px, 1.6vw, 20px);
-            font-weight: bold; text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-            font-family: inherit; background: rgba(0,0,0,0.4);
-            padding: 1px 12px; border-radius: 16px;
-            border: 1px solid rgba(241,196,15,0.3);
-            letter-spacing: 1px; white-space: nowrap;
-        }
-        #skillBtn {
-            position: absolute; bottom: 10px; left: 10px; z-index: 4;
-            background: linear-gradient(145deg, #e74c3c, #c0392b);
-            color: white; border: 2px solid #f1c40f; border-radius: 16px;
-            padding: 4px 14px; font-size: clamp(12px, 1.6vw, 20px); font-weight: bold;
-            cursor: pointer; box-shadow: 0 4px 0 #922b21, 0 0 16px rgba(231,76,60,0.4);
-            transition: 0.08s linear; touch-action: manipulation;
-            display: flex; align-items: center; gap: 6px; white-space: nowrap;
-            font-family: "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
-        }
-        #skillBtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #922b21; }
-        #skillBtn .cost { font-size: clamp(8px, 1vw, 14px); opacity: 0.8; font-family: inherit; }
-        #skillBtn .badge { background: rgba(255,255,255,0.2); border-radius: 10px; padding: 0 6px; font-size: clamp(8px, 1vw, 14px); font-family: inherit; }
-        #skillBtn.ready { animation: pulse-glow 1s infinite; border-color: #f1c40f; box-shadow: 0 4px 0 #922b21, 0 0 30px rgba(241,196,15,0.6); }
-        #skillBtn.cooldown { opacity: 0.5; pointer-events: none; }
-        @keyframes pulse-glow { 0%,100% { box-shadow: 0 4px 0 #922b21, 0 0 16px rgba(241,196,15,0.3); } 50% { box-shadow: 0 4px 0 #922b21, 0 0 40px rgba(241,196,15,0.7); } }
-        @media (max-width: 600px) and (orientation: landscape) {
-            #gameWrapper { border-radius: 0; }
-            .btn { padding: 4px 16px; font-size: clamp(12px, 1.8vw, 18px); }
-            #overlay input { font-size: clamp(12px, 1.4vw, 16px); height: 30px; padding: 4px 8px; }
-            #overlay h1 { font-size: clamp(16px, 3vw, 26px); }
-            #overlay p { font-size: clamp(10px, 1.2vw, 14px); }
-            #skillBtn { padding: 2px 10px; font-size: clamp(10px, 1.4vw, 16px); bottom: 6px; left: 6px; border-radius: 12px; }
-            #skillBtn .cost { font-size: clamp(6px, 0.8vw, 10px); }
-            #timeDisplay { font-size: clamp(14px, 2vw, 20px); padding: 1px 10px; }
-            #titleDisplay { font-size: clamp(10px, 1.2vw, 14px); top: 38px; right: 8px; padding: 1px 8px; }
-            #ageInput { width: 60px; }
-            #nameInput { width: 90px; font-size: 12px; }
-            #activationInput { width: 100px; font-size: 12px; }
-        }
-        .col-settings {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 3px 8px;
-            margin: 2px 0;
-            background: rgba(0,0,0,0.2);
-            padding: 4px 8px;
-            border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.08);
+        html,
+        body {
             width: 100%;
-            max-width: 800px;
-        }
-        .col-settings label {
-            font-size: clamp(11px, 1.2vw, 14px);
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a2e;
+            font-family: "Segoe UI", "PingFang SC", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
             display: flex;
-            align-items: center;
-            gap: 2px;
-            color: #ddd;
-        }
-        .col-settings select {
-            background: #2c3e50;
-            color: white;
-            border: 1px solid #f1c40f;
-            border-radius: 6px;
-            padding: 1px 3px;
-            font-size: clamp(11px, 1.2vw, 14px);
-            font-family: inherit;
-            cursor: pointer;
-            height: 24px;
-        }
-        .col-settings select:focus { outline: 2px solid #f39c12; }
-        .row-group {
-            display: flex;
-            flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            gap: 4px 12px;
-            margin: 1px 0;
+            touch-action: none;
+            position: fixed;
+            top: 0;
+            left: 0;
         }
-        .row-group .item {
-            display: flex;
-            align-items: center;
-            gap: 4px;
+        #gameWrapper {
+            position: relative;
+            background: #2d4a22;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            max-width: 100%;
+            max-height: 100%;
+            touch-action: none;
         }
-        .row-group .item label {
-            font-size: clamp(12px, 1.4vw, 16px);
-            opacity: 0.9;
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #4a7c3f;
+            cursor: pointer;
+            touch-action: none;
         }
-        /* 激活码覆盖层 */
+        #overlay,
         #activatorOverlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.92);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            color: white;
+            color: #fff;
             padding: 20px;
             text-align: center;
-            z-index: 20;
-            gap: 8px;
-            backdrop-filter: blur(4px);
+            z-index: 10;
+            gap: 6px;
+            overflow-y: auto;
+            backdrop-filter: blur(6px);
         }
-        #activatorOverlay.hidden { display: none; }
-        #activatorOverlay h2 { font-size: clamp(24px, 4vw, 40px); color: #f1c40f; }
-        #activatorOverlay .sub { font-size: clamp(14px, 1.8vw, 22px); opacity: 0.8; }
-        #activatorOverlay input {
-            padding: 10px 20px;
-            font-size: clamp(18px, 2vw, 28px);
+        #overlay {
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+        }
+        #overlay.show {
+            display: flex;
+        }
+        #activatorOverlay {
+            background: rgba(0, 0, 0, 0.92);
+            z-index: 20;
+        }
+        #activatorOverlay.hidden {
+            display: none;
+        }
+        #activatorOverlay h2 {
+            font-size: clamp(28px, 5vw, 48px);
+            color: #f1c40f;
+        }
+        #overlay h1 {
+            font-size: clamp(24px, 5vw, 48px);
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        }
+        #overlay p,
+        #activatorOverlay .sub {
+            font-size: clamp(14px, 2vw, 22px);
+            opacity: 0.8;
+        }
+        input,
+        select {
+            padding: 8px 16px;
+            font-size: clamp(16px, 2vw, 24px);
             border: none;
             border-radius: 60px;
-            width: 200px;
             text-align: center;
             background: #f0f0f0;
             color: #222;
             outline: 2px solid #f5b041;
-            font-weight: bold;
+            font-weight: 700;
             font-family: inherit;
+            height: 40px;
+        }
+        input:focus,
+        select:focus {
+            outline: 4px solid #f39c12;
+        }
+        #ageInput {
+            width: 80px;
+        }
+        #nameInput {
+            width: 200px;
+            font-size: 16px;
+        }
+        #activationInput {
+            width: 200px;
+            font-size: 16px;
             letter-spacing: 4px;
         }
-        #activatorOverlay input:focus { outline: 4px solid #f39c12; }
-        #activatorOverlay .act-btn {
-            padding: 10px 40px;
-            font-size: clamp(16px, 2vw, 24px);
-            border: none;
-            border-radius: 60px;
-            background: linear-gradient(145deg, #f5b041, #e67e22);
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 6px 0 #b85e0e;
-            transition: 0.08s linear;
-            touch-action: manipulation;
-            font-family: inherit;
+        #difficultySelect {
+            width: 120px;
+            background: #2c3e50;
+            color: #fff;
+            border: 1px solid #f1c40f;
+            border-radius: 30px;
+            appearance: auto;
         }
-        #activatorOverlay .act-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #b85e0e; }
-        #activatorOverlay .status-msg {
+        .btn,
+        .act-btn {
+            padding: 10px 30px;
+            font-size: clamp(16px, 2.5vw, 26px);
+            border: none;
+            border-radius: 40px;
+            background: linear-gradient(145deg, #f5b041, #e67e22);
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #b85e0e;
+            transition: 0.08s;
+            font-family: inherit;
+            opacity: .5;
+            pointer-events: none;
+        }
+        .btn.active,
+        .act-btn {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .btn.active:active,
+        .act-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #b85e0e;
+        }
+        #statusMsg {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, .75);
+            color: #f1c40f;
+            padding: 4px 16px;
+            border-radius: 30px;
+            font-size: clamp(14px, 1.8vw, 22px);
+            font-weight: 700;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity .2s;
+            z-index: 5;
+            border: 2px solid #f1c40f;
+            white-space: nowrap;
+        }
+        #statusMsg.show {
+            opacity: 1;
+        }
+        #timeDisplay {
+            position: absolute;
+            top: 50px;
+            left: 20px;
+            background: rgba(0, 0, 0, .7);
+            color: #f1c40f;
+            padding: 4px 18px;
+            border-radius: 16px;
+            font-size: clamp(20px, 2.8vw, 34px);
+            font-weight: 700;
+            z-index: 3;
+            border: 2px solid #f1c40f;
+            letter-spacing: 2px;
+        }
+        #titleDisplay {
+            position: absolute;
+            top: 12px;
+            right: 20px;
+            z-index: 3;
+            color: #f1c40f;
+            font-size: clamp(14px, 1.6vw, 22px);
+            font-weight: 700;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, .8);
+            background: rgba(0, 0, 0, .4);
+            padding: 2px 16px;
+            border-radius: 16px;
+            border: 1px solid rgba(241, 196, 15, .3);
+            white-space: nowrap;
+        }
+        #skillBtn {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            z-index: 4;
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+            color: #fff;
+            border: 2px solid #f1c40f;
+            border-radius: 16px;
+            padding: 6px 16px;
+            font-size: clamp(14px, 1.6vw, 22px);
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #922b21, 0 0 16px rgba(231, 76, 60, .4);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+            font-family: "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+        }
+        #skillBtn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #922b21;
+        }
+        #skillBtn .cost {
+            font-size: clamp(10px, 1vw, 14px);
+            opacity: .8;
+        }
+        #skillBtn .badge {
+            background: rgba(255, 255, 255, .2);
+            border-radius: 10px;
+            padding: 0 8px;
+            font-size: clamp(10px, 1vw, 14px);
+        }
+        #skillBtn.ready {
+            animation: pulse-glow 1s infinite;
+            border-color: #f1c40f;
+            box-shadow: 0 4px 0 #922b21, 0 0 30px rgba(241, 196, 15, .6);
+        }
+        #skillBtn.cooldown {
+            opacity: .5;
+            pointer-events: none;
+        }
+        @keyframes pulse-glow {
+            0%,
+            100% {
+                box-shadow: 0 4px 0 #922b21, 0 0 16px rgba(241, 196, 15, .3);
+            }
+            50% {
+                box-shadow: 0 4px 0 #922b21, 0 0 40px rgba(241, 196, 15, .7);
+            }
+        }
+        .row-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 8px 20px;
+        }
+        .row-group .item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .row-group .item label {
             font-size: clamp(14px, 1.6vw, 20px);
-            min-height: 30px;
+            opacity: .9;
+        }
+        .col-settings {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 4px 12px;
+            background: rgba(0, 0, 0, .2);
+            padding: 6px 12px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, .08);
+            width: 100%;
+            max-width: 800px;
+        }
+        .col-settings label {
+            font-size: clamp(12px, 1.2vw, 16px);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #ddd;
+        }
+        .col-settings select {
+            background: #2c3e50;
+            color: #fff;
+            border: 1px solid #f1c40f;
+            border-radius: 8px;
+            padding: 2px 6px;
+            font-size: clamp(12px, 1.2vw, 16px);
+            height: 28px;
+            cursor: pointer;
+        }
+        #wrongAnswerOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, .88);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            z-index: 30;
+            gap: 12px;
+            backdrop-filter: blur(4px);
+            overflow-y: auto;
+        }
+        #wrongAnswerOverlay.show {
+            display: flex;
+        }
+        #wrongAnswerOverlay h2 {
+            font-size: clamp(24px, 4vw, 40px);
+            color: #e74c3c;
+        }
+        .wrong-list {
+            max-height: 60vh;
+            overflow-y: auto;
+            width: 90%;
+            max-width: 700px;
+            background: rgba(0, 0, 0, .5);
+            border-radius: 16px;
+            padding: 16px;
+            text-align: left;
+        }
+        .wrong-item {
+            border-bottom: 1px solid rgba(255, 255, 255, .1);
+            padding: 8px 0;
+            font-size: clamp(14px, 1.6vw, 20px);
+        }
+        .wrong-item .q {
             color: #f1c40f;
         }
-        #activatorOverlay .status-msg.error { color: #e74c3c; }
-        #activatorOverlay .status-msg.success { color: #2ecc71; }
+        .wrong-item .a {
+            color: #2ecc71;
+        }
+        .wrong-item .u {
+            color: #e74c3c;
+        }
+        #closeWrongBtn {
+            margin-top: 10px;
+            padding: 10px 30px;
+            font-size: clamp(16px, 2vw, 22px);
+            border: none;
+            border-radius: 40px;
+            background: #f5b041;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        @media (max-width:600px) and (orientation:landscape) {
+            #gameWrapper {
+                border-radius: 0;
+            }
+            #timeDisplay {
+                top: 40px;
+                left: 10px;
+                font-size: clamp(16px, 2vw, 24px);
+                padding: 2px 12px;
+            }
+            #titleDisplay {
+                top: 10px;
+                right: 10px;
+                font-size: clamp(10px, 1.2vw, 14px);
+                padding: 1px 8px;
+            }
+            #skillBtn {
+                padding: 4px 10px;
+                font-size: clamp(10px, 1.4vw, 16px);
+                bottom: 6px;
+                left: 6px;
+            }
+            input,
+            select {
+                font-size: clamp(12px, 1.4vw, 16px);
+                height: 30px;
+                padding: 4px 8px;
+            }
+            #overlay h1 {
+                font-size: clamp(18px, 3vw, 28px);
+            }
+            #overlay p {
+                font-size: clamp(10px, 1.2vw, 14px);
+            }
+            #ageInput {
+                width: 60px;
+            }
+            #nameInput {
+                width: 120px;
+                font-size: 12px;
+            }
+            #activationInput {
+                width: 150px;
+                font-size: 12px;
+            }
+            #difficultySelect {
+                width: 90px;
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <div id="rotateHint">
-        <div class="icon">📱</div>
-        <p style="margin-top:20px;">请将手机<b>横屏</b>玩游戏</p>
-        <p style="font-size:16px; opacity:0.6; margin-top:10px;">转动手机后自动进入</p>
-    </div>
-
     <div id="gameWrapper">
         <canvas id="gameCanvas" width="1600" height="900"></canvas>
-        <div id="titleDisplay">🏫 陈老师原创制作</div>
         <div id="timeDisplay">⏱️ 10:00</div>
+        <div id="titleDisplay">🏫 陈老师原创制作</div>
         <div id="statusMsg">✅ +25 阳光</div>
-
         <div id="skillBtn" class="cooldown">
             <span>💥</span>
             <span>樱桃炸弹</span>
@@ -269,45 +429,221 @@
             <span class="badge" id="skillBadge">⏳</span>
         </div>
 
-        <!-- 激活码覆盖层 -->
+        <!-- 激活码 -->
         <div id="activatorOverlay">
             <h2>🧮 口算塔防</h2>
             <div class="sub">请输入激活码以开始游戏</div>
-            <div style="margin:8px 0;font-size:clamp(12px,1.4vw,18px);opacity:0.6;">💡 联系作者获取激活码</div>
-            <input type="text" id="activationCodeInput" maxlength="8" placeholder="输入激活码" autocomplete="off">
-            <button class="act-btn" id="activationSubmitBtn">🔓 激活</button>
-            <div class="status-msg" id="activationStatusMsg">等待输入...</div>
-            <div style="font-size:clamp(10px,1vw,14px);opacity:0.3;margin-top:4px;">设备ID: <span id="deviceIdDisplay">--</span></div>
+            <div style="margin:8px 0;font-size:clamp(14px,1.6vw,20px);opacity:.6;">💡 联系作者获取激活码</div>
+            <input type="text" id="activationInput" maxlength="8" placeholder="输入激活码">
+            <button class="act-btn" id="activationBtn">🔓 激活</button>
+            <div class="status-msg" id="activationStatus" style="font-size:clamp(16px,1.8vw,22px);min-height:30px;">等待输入...</div>
+            <div style="font-size:clamp(10px,1vw,14px);opacity:.3;">设备ID: <span id="deviceIdDisplay">--</span></div>
         </div>
 
-        <!-- 游戏设置界面 -->
+        <!-- 设置 -->
         <div id="overlay">
             <h1>🧮 口算塔防</h1>
             <p id="overlaySub">答题赚阳光 · 自由列种植 · 生存10分钟</p>
-
-            <div><span style="background:rgba(0,0,0,0.4);padding:4px 14px;border-radius:30px;font-size:clamp(12px,1.6vw,18px);font-family:inherit;">👶 小朋友几岁？</span></div>
-            <input type="number" id="ageInput" min="4" max="18" value="8" step="1">
-
-            <div><span style="background:rgba(0,0,0,0.4);padding:4px 14px;border-radius:30px;font-size:clamp(12px,1.6vw,18px);font-family:inherit;">🏡 家园名字？</span></div>
-            <input type="text" id="nameInput" maxlength="8" value="小明" placeholder="输入名字">
-
-            <div style="font-size:clamp(12px,1.4vw,18px); opacity:0.9; margin-top:4px;">🌱 设置每列种植的植物（从左到右）</div>
+            <div class="row-group">
+                <div class="item"><label>👶</label><input type="number" id="ageInput" min="4" max="18" value="8" step="1"></div>
+                <div class="item"><label>🏡</label><input type="text" id="nameInput" maxlength="10" value="小明"></div>
+                <div class="item"><label>🎯</label>
+                    <select id="difficultySelect">
+                        <option value="35">简单</option>
+                        <option value="25" selected>普通</option>
+                        <option value="15">困难</option>
+                    </select>
+                </div>
+            </div>
+            <div style="font-size:clamp(12px,1.4vw,18px);opacity:.9;">🌱 设置每列种植的植物（从左到右）</div>
             <div class="col-settings" id="colSettings"></div>
-
             <button class="btn active" id="startBtn">🌞 开始游戏</button>
-            <div style="font-size:clamp(10px,1.1vw,13px); opacity:0.5; font-family:inherit;">答对 +25 ☀️ · 答错 -5 ☀️ · 坚持10分钟胜利！</div>
+            <div style="font-size:clamp(10px,1.1vw,13px);opacity:.5;">答对获得阳光依难度而定 · 答错 -5 ☀️ · 坚持10分钟胜利！</div>
+        </div>
+
+        <!-- 错题 -->
+        <div id="wrongAnswerOverlay">
+            <h2>📝 做错的题目</h2>
+            <div class="wrong-list" id="wrongList"></div>
+            <button id="closeWrongBtn">关闭</button>
         </div>
     </div>
 
     <script>
         // ============================================================
-        //  激活码验证模块 + 完整游戏核心逻辑
+        //  口算塔防 - 优化版
+        //  功能完整，代码精简
         // ============================================================
 
-        // ---------- 服务器地址 ----------
-        const SERVER_URL = window.location.origin;
+        // ---------- 常量与配置 ----------
+        const API_BASE = '';
+        const W = 1600,
+            H = 900;
+        const ROWS = 5,
+            COLS = 7;
+        const CW = 150,
+            CH = 130;
+        const GX = 275,
+            GY = 140;
+        const HOUSE_X = 60,
+            DOOR_W = 18,
+            DOOR_H = 22,
+            WIN_SZ = 12,
+            HOUSE_SZ = 72;
+        const EMOJI_FONT = '"Segoe UI","Apple Color Emoji","Segoe UI Emoji",sans-serif';
+        const PLANT_TYPES = [
+            { id: 'sunflower', name: '向日葵', cost: 50, hp: 100, atk: 0, emoji: '🌻' },
+            { id: 'potato', name: '土豆雷', cost: 75, hp: 50, atk: 100, emoji: '💣' },
+            { id: 'chomper', name: '食人花', cost: 125, hp: 120, atk: 40, emoji: '🌺' },
+            { id: 'icepea', name: '寒冰射手', cost: 150, hp: 100, atk: 15, emoji: '❄️' },
+            { id: 'doublepea', name: '双发射手', cost: 200, hp: 120, atk: 20, emoji: '🔫' },
+            { id: 'peashooter', name: '豌豆射手', cost: 100, hp: 100, atk: 20, emoji: '🟢' },
+            { id: 'wallnut', name: '坚果墙', cost: 50, hp: 400, atk: 0, emoji: '🧱' },
+        ];
+        const CHERRY = { id: 'cherry', name: '樱桃炸弹', cost: 150, hp: 50, atk: 150, emoji: '🍒' };
+        const ZOMBIE_TYPES = [
+            { id: 'normal', name: '普通', hp: 100, speed: .35, atk: 8 },
+            { id: 'cone', name: '路障', hp: 200, speed: .3, atk: 10 },
+            { id: 'bucket', name: '铁桶', hp: 350, speed: .25, atk: 12 },
+            { id: 'pole', name: '撑杆', hp: 100, speed: .6, atk: 12 },
+            { id: 'newspaper', name: '读报', hp: 150, speed: .45, atk: 15 },
+            { id: 'giant', name: '巨人', hp: 500, speed: .18, atk: 25 },
+        ];
+        const DEFAULT_COLS = ['sunflower', 'potato', 'chomper', 'icepea', 'doublepea', 'peashooter', 'wallnut'];
 
-        // ---------- 设备ID ----------
+        // ---------- DOM ----------
+        const $ = id => document.getElementById(id);
+        const canvas = $('gameCanvas'),
+            ctx = canvas.getContext('2d');
+        const overlay = $('overlay'),
+            activator = $('activatorOverlay');
+        const startBtn = $('startBtn'),
+            ageInput = $('ageInput'),
+            nameInput = $('nameInput'),
+            diffSelect = $('difficultySelect');
+        const statusMsg = $('statusMsg'),
+            timeDisplay = $('timeDisplay'),
+            skillBtn = $('skillBtn'),
+            skillBadge = $('skillBadge');
+        const activationInput = $('activationInput'),
+            activationBtn = $('activationBtn'),
+            activationStatus = $('activationStatus'),
+            deviceDisplay = $('deviceIdDisplay');
+        const wrongOverlay = $('wrongAnswerOverlay'),
+            wrongList = $('wrongList'),
+            closeWrong = $('closeWrongBtn');
+
+        // ---------- 工具 ----------
+        const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+        const randF = (a, b) => Math.random() * (b - a) + a;
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+        function getPlant(id) { return PLANT_TYPES.find(p => p.id === id); }
+
+        function getZombie(id) { return ZOMBIE_TYPES.find(z => z.id === id); }
+
+        function cellCenter(r, c) { return { x: GX + c * CW + CW / 2, y: GY + r * CH + CH / 2 }; }
+
+        // ---------- 音效 ----------
+        class Sound {
+            constructor() { try { this.ctx = new(window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+            resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); }
+            play(type) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator(),
+                        gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    const n = this.ctx.currentTime,
+                        map = {
+                            correct: () => { osc.frequency.setValueAtTime(880, n);
+                                osc.frequency.exponentialRampToValueAtTime(1320, n + .12);
+                                gain.gain.setValueAtTime(.15, n);
+                                gain.gain.exponentialRampToValueAtTime(.001, n + .15);
+                                osc.start(n);
+                                osc.stop(n + .15); },
+                            wrong: () => { osc.frequency.setValueAtTime(330, n);
+                                osc.frequency.exponentialRampToValueAtTime(220, n + .2);
+                                gain.gain.setValueAtTime(.12, n);
+                                gain.gain.exponentialRampToValueAtTime(.001, n + .25);
+                                osc.start(n);
+                                osc.stop(n + .25); },
+                            plant: () => { osc.frequency.setValueAtTime(600, n);
+                                osc.frequency.exponentialRampToValueAtTime(900, n + .08);
+                                gain.gain.setValueAtTime(.08, n);
+                                gain.gain.exponentialRampToValueAtTime(.001, n + .1);
+                                osc.start(n);
+                                osc.stop(n + .1); },
+                            zombie: () => { osc.type = 'sawtooth';
+                                osc.frequency.setValueAtTime(200, n);
+                                osc.frequency.exponentialRampToValueAtTime(80, n + .3);
+                                gain.gain.setValueAtTime(.06, n);
+                                gain.gain.exponentialRampToValueAtTime(.001, n + .35);
+                                osc.start(n);
+                                osc.stop(n + .35); },
+                            shoot: () => { osc.frequency.setValueAtTime(1200, n);
+                                osc.frequency.exponentialRampToValueAtTime(400, n + .05);
+                                gain.gain.setValueAtTime(.04, n);
+                                gain.gain.exponentialRampToValueAtTime(.001, n + .06);
+                                osc.start(n);
+                                osc.stop(n + .06); },
+                            zombieDie: () => { osc.type = 'square';
+                                osc.frequency.setValueAtTime(300, n);
+                                osc.frequency.exponentialRampToValueAtTime(80, n + .2);
+                                gain.gain.setValueAtTime(.06, n);
+                                gain.gain.exponentialRampToValueAtTime(.001, n + .25);
+                                osc.start(n);
+                                osc.stop(n + .25); },
+                            houseHit: () => { osc.type = 'sawtooth';
+                                osc.frequency.setValueAtTime(150, n);
+                                osc.frequency.exponentialRampToValueAtTime(50, n + .4);
+                                gain.gain.setValueAtTime(.1, n);
+                                gain.gain.exponentialRampToValueAtTime(.001, n + .45);
+                                osc.start(n);
+                                osc.stop(n + .45); },
+                            victory: () => { [523, 587, 659, 784, 880, 988, 1175].forEach((f, i) => { const o = this
+                                        .ctx.createOscillator(),
+                                        g = this.ctx.createGain();
+                                        o.connect(g);
+                                        g.connect(this.ctx.destination);
+                                        o.frequency.setValueAtTime(f, n + i * .1);
+                                        g.gain.setValueAtTime(.06, n + i * .1);
+                                        g.gain.exponentialRampToValueAtTime(.001, n + i * .1 + .15);
+                                        o.start(n + i * .1);
+                                        o.stop(n + i * .1 + .15); }); },
+                            gameover: () => { [440, 349, 294, 220].forEach((f, i) => { const o = this.ctx
+                                        .createOscillator(),
+                                        g = this.ctx.createGain();
+                                        o.connect(g);
+                                        g.connect(this.ctx.destination);
+                                        o.type = 'sawtooth';
+                                        o.frequency.setValueAtTime(f, n + i * .15);
+                                        g.gain.setValueAtTime(.05, n + i * .15);
+                                        g.gain.exponentialRampToValueAtTime(.001, n + i * .15 + .2);
+                                        o.start(n + i * .15);
+                                        o.stop(n + i * .15 + .2); }); },
+                            bomb: () => { [80, 120, 180, 240, 300].forEach((f, i) => { const o = this.ctx
+                                        .createOscillator(),
+                                        g = this.ctx.createGain();
+                                        o.connect(g);
+                                        g.connect(this.ctx.destination);
+                                        o.type = 'sawtooth';
+                                        o.frequency.setValueAtTime(f, n + i * .06);
+                                        g.gain.setValueAtTime(.12, n + i * .06);
+                                        g.gain.exponentialRampToValueAtTime(.001, n + i * .06 + .15);
+                                        o.start(n + i * .06);
+                                        o.stop(n + i * .06 + .15); }); }
+                        };
+                    if (map[type]) map[type]();
+                } catch (e) {}
+            }
+        }
+        const sound = new Sound();
+
+        // ---------- 激活码 ----------
+        let isActivated = false;
+
         function getDeviceId() {
             let id = localStorage.getItem('td_device_id');
             if (!id) {
@@ -317,1008 +653,644 @@
             return id;
         }
         const DEVICE_ID = getDeviceId();
-        document.getElementById('deviceIdDisplay').textContent = DEVICE_ID;
+        deviceDisplay.textContent = DEVICE_ID;
 
-        // ---------- 激活码验证 ----------
-        const activatorOverlay = document.getElementById('activatorOverlay');
-        const activationInput = document.getElementById('activationCodeInput');
-        const activationBtn = document.getElementById('activationSubmitBtn');
-        const activationStatus = document.getElementById('activationStatusMsg');
-        const overlay = document.getElementById('overlay');
-
-        let isActivated = false;
+        async function callAPI(path, data) {
+            const opts = { method: data ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json' } };
+            if (data) opts.body = JSON.stringify(data);
+            return fetch(API_BASE + path, opts).then(r => r.json());
+        }
 
         async function checkActivation() {
             try {
-                const resp = await fetch(SERVER_URL + '/api/check', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device_id: DEVICE_ID })
-                });
-                const data = await resp.json();
-                if (data.activated === true) {
+                const d = await callAPI('/api/check', { device_id: DEVICE_ID });
+                if (d.activated) {
                     isActivated = true;
-                    activatorOverlay.classList.add('hidden');
-                    overlay.classList.remove('hidden');
+                    activator.classList.add('hidden');
+                    overlay.classList.add('show');
                     activationStatus.textContent = '✅ 已激活！';
                     activationStatus.className = 'status-msg success';
                     return true;
-                } else {
-                    isActivated = false;
-                    activatorOverlay.classList.remove('hidden');
-                    overlay.classList.add('hidden');
-                    return false;
                 }
             } catch (e) {
-                const cached = localStorage.getItem('td_activated') === 'true';
-                if (cached) {
+                if (localStorage.getItem('td_activated') === 'true') {
                     isActivated = true;
-                    activatorOverlay.classList.add('hidden');
-                    overlay.classList.remove('hidden');
-                    activationStatus.textContent = '✅ 已激活（离线模式）';
+                    activator.classList.add('hidden');
+                    overlay.classList.add('show');
+                    activationStatus.textContent = '✅ 已激活（离线）';
                     activationStatus.className = 'status-msg success';
                     return true;
                 }
-                activationStatus.textContent = '⚠️ 无法连接服务器，请检查网络';
+                activationStatus.textContent = '⚠️ 无法连接服务器';
                 activationStatus.className = 'status-msg error';
-                return false;
             }
+            activator.classList.remove('hidden');
+            overlay.classList.remove('show');
+            return false;
         }
 
-        async function submitActivation(code) {
-            const upperCode = code.toUpperCase().trim();
-            if (upperCode.length < 4) {
-                activationStatus.textContent = '⚠️ 请输入4-8位激活码';
-                activationStatus.className = 'status-msg error';
-                return;
-            }
+        async function submitActivation() {
+            const code = activationInput.value.trim().toUpperCase();
+            if (code.length < 4) { activationStatus.textContent = '⚠️ 请输入4-8位激活码';
+                activationStatus.className = 'status-msg error'; return; }
             activationStatus.textContent = '⏳ 验证中...';
             activationStatus.className = 'status-msg';
-
             try {
-                const resp = await fetch(SERVER_URL + '/api/verify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code: upperCode, device_id: DEVICE_ID })
-                });
-                const data = await resp.json();
-
-                if (data.success) {
+                const d = await callAPI('/api/verify', { code, device_id: DEVICE_ID });
+                if (d.success) {
                     isActivated = true;
                     localStorage.setItem('td_activated', 'true');
-                    localStorage.setItem('td_activation_code', upperCode);
-                    activationStatus.textContent = '✅ ' + data.message;
+                    activationStatus.textContent = '✅ ' + d.message;
                     activationStatus.className = 'status-msg success';
-                    activatorOverlay.classList.add('hidden');
-                    overlay.classList.remove('hidden');
+                    activator.classList.add('hidden');
+                    overlay.classList.add('show');
                 } else {
-                    activationStatus.textContent = '❌ ' + data.message;
+                    activationStatus.textContent = '❌ ' + d.message;
                     activationStatus.className = 'status-msg error';
-                    activationInput.classList.add('error');
-                    setTimeout(() => activationInput.classList.remove('error'), 500);
                 }
-            } catch (e) {
-                activationStatus.textContent = '❌ 网络错误，请重试';
-                activationStatus.className = 'status-msg error';
-            }
+            } catch (e) { activationStatus.textContent = '❌ 网络错误';
+                activationStatus.className = 'status-msg error'; }
         }
 
-        activationBtn.addEventListener('click', function() {
-            submitActivation(activationInput.value);
-        });
-        activationInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') { e.preventDefault(); activationBtn.click(); }
-        });
+        activationBtn.onclick = submitActivation;
+        activationInput.onkeydown = e => { if (e.key === 'Enter') submitActivation(); };
+        checkActivation();
 
-        // ---------- 页面加载检查 ----------
-        (async function init() {
-            await checkActivation();
-        })();
-
-        // ============================================================
-        //  🔥 完整游戏核心逻辑（开始）
-        // ============================================================
-
-        const EMOJI_FONT = '"Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-        let ZOMBIE_SPEED_FACTOR = 0.9;
-
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const statusMsg = document.getElementById('statusMsg');
-        const timeDisplay = document.getElementById('timeDisplay');
-        const skillBtn = document.getElementById('skillBtn');
-        const skillBadge = document.getElementById('skillBadge');
-        const startBtn = document.getElementById('startBtn');
-        const ageInput = document.getElementById('ageInput');
-        const nameInput = document.getElementById('nameInput');
-
-        const W = 1600, H = 900;
-        canvas.width = W;
-        canvas.height = H;
-
-        const ROWS = 5, COLS = 7;
-        const cellWidth = 150, cellHeight = 130;
-        const gridOffsetX = 275;
-        const gridOffsetY = 140;
-
-        // ---------- 植物定义 ----------
-        const ALL_PLANT_TYPES = [
-            { id: 'sunflower', name: '向日葵', cost: 50, hp: 100, attack: 0, emoji: '🌻' },
-            { id: 'potato', name: '土豆雷', cost: 75, hp: 50, attack: 100, emoji: '💣' },
-            { id: 'chomper', name: '食人花', cost: 125, hp: 120, attack: 40, emoji: '🌺' },
-            { id: 'icepea', name: '寒冰射手', cost: 150, hp: 100, attack: 15, emoji: '❄️' },
-            { id: 'doublepea', name: '双发射手', cost: 200, hp: 120, attack: 20, emoji: '🔫' },
-            { id: 'peashooter', name: '豌豆射手', cost: 100, hp: 100, attack: 20, emoji: '🟢' },
-            { id: 'wallnut', name: '坚果墙', cost: 50, hp: 400, attack: 0, emoji: '🧱' },
-        ];
-
-        const CHERRY_BOMB = { id: 'cherry', name: '樱桃炸弹', cost: 150, hp: 50, attack: 150, emoji: '🍒' };
-
-        const DEFAULT_COLUMN_PLANT_IDS = [
-            'sunflower', 'potato', 'chomper', 'icepea', 'doublepea', 'peashooter', 'wallnut'
-        ];
-
-        function generateColumnSelectors() {
-            const container = document.getElementById('colSettings');
+        // ---------- 列选择器 ----------
+        function initColumnSelectors() {
+            const container = $('colSettings');
             container.innerHTML = '';
-            const plantNames = ALL_PLANT_TYPES.map(p => ({ id: p.id, name: p.name, emoji: p.emoji }));
+            PLANT_TYPES.forEach(p => p.emoji); // preload
             for (let i = 0; i < COLS; i++) {
                 const label = document.createElement('label');
                 label.textContent = `列${i+1}:`;
-                const select = document.createElement('select');
-                select.id = `colSelect_${i}`;
-                plantNames.forEach(p => {
+                const sel = document.createElement('select');
+                sel.id = `colSel_${i}`;
+                PLANT_TYPES.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
                     opt.textContent = p.emoji + ' ' + p.name;
-                    if (p.id === DEFAULT_COLUMN_PLANT_IDS[i]) opt.selected = true;
-                    select.appendChild(opt);
+                    if (p.id === DEFAULT_COLS[i]) opt.selected = true;
+                    sel.appendChild(opt);
                 });
-                label.appendChild(select);
+                label.appendChild(sel);
                 container.appendChild(label);
             }
         }
-        generateColumnSelectors();
-
-        // ---------- 音效 ----------
-        class SoundFX {
-            constructor() {
-                this.ctx = null;
-                try { this.ctx = new(window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
-            }
-            resume() {
-                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-            }
-            play(type) {
-                if (!this.ctx) return;
-                try {
-                    const osc = this.ctx.createOscillator();
-                    const gain = this.ctx.createGain();
-                    osc.connect(gain);
-                    gain.connect(this.ctx.destination);
-                    const now = this.ctx.currentTime;
-                    const types = {
-                        correct: () => { osc.frequency.setValueAtTime(880, now);
-                            osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
-                            gain.gain.setValueAtTime(0.15, now);
-                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-                            osc.start(now);
-                            osc.stop(now + 0.15); },
-                        wrong: () => { osc.frequency.setValueAtTime(330, now);
-                            osc.frequency.exponentialRampToValueAtTime(220, now + 0.2);
-                            gain.gain.setValueAtTime(0.12, now);
-                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-                            osc.start(now);
-                            osc.stop(now + 0.25); },
-                        plant: () => { osc.frequency.setValueAtTime(600, now);
-                            osc.frequency.exponentialRampToValueAtTime(900, now + 0.08);
-                            gain.gain.setValueAtTime(0.08, now);
-                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-                            osc.start(now);
-                            osc.stop(now + 0.1); },
-                        zombie: () => { osc.type = 'sawtooth';
-                            osc.frequency.setValueAtTime(200, now);
-                            osc.frequency.exponentialRampToValueAtTime(80, now + 0.3);
-                            gain.gain.setValueAtTime(0.06, now);
-                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-                            osc.start(now);
-                            osc.stop(now + 0.35); },
-                        shoot: () => { osc.frequency.setValueAtTime(1200, now);
-                            osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
-                            gain.gain.setValueAtTime(0.04, now);
-                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-                            osc.start(now);
-                            osc.stop(now + 0.06); },
-                        zombieDie: () => { osc.type = 'square';
-                            osc.frequency.setValueAtTime(300, now);
-                            osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
-                            gain.gain.setValueAtTime(0.06, now);
-                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-                            osc.start(now);
-                            osc.stop(now + 0.25); },
-                        houseHit: () => { osc.type = 'sawtooth';
-                            osc.frequency.setValueAtTime(150, now);
-                            osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);
-                            gain.gain.setValueAtTime(0.1, now);
-                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-                            osc.start(now);
-                            osc.stop(now + 0.45); },
-                        victory: () => { [523, 587, 659, 784, 880, 988, 1175].forEach((f, i) => { const o2 = this.ctx
-                                    .createOscillator();
-                                const g2 = this.ctx.createGain();
-                                o2.connect(g2);
-                                g2.connect(this.ctx.destination);
-                                o2.frequency.setValueAtTime(f, now + i * 0.1);
-                                g2.gain.setValueAtTime(0.06, now + i * 0.1);
-                                g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.15);
-                                o2.start(now + i * 0.1);
-                                o2.stop(now + i * 0.1 + 0.15); }); },
-                        gameover: () => { [440, 349, 294, 220].forEach((f, i) => { const o2 = this.ctx
-                                    .createOscillator();
-                                const g2 = this.ctx.createGain();
-                                o2.connect(g2);
-                                g2.connect(this.ctx.destination);
-                                o2.type = 'sawtooth';
-                                o2.frequency.setValueAtTime(f, now + i * 0.15);
-                                g2.gain.setValueAtTime(0.05, now + i * 0.15);
-                                g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.2);
-                                o2.start(now + i * 0.15);
-                                o2.stop(now + i * 0.15 + 0.2); }); },
-                        bomb: () => { [80, 120, 180, 240, 300].forEach((f, i) => { const o2 = this.ctx
-                                    .createOscillator();
-                                const g2 = this.ctx.createGain();
-                                o2.connect(g2);
-                                g2.connect(this.ctx.destination);
-                                o2.type = 'sawtooth';
-                                o2.frequency.setValueAtTime(f, now + i * 0.06);
-                                g2.gain.setValueAtTime(0.12, now + i * 0.06);
-                                g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.15);
-                                o2.start(now + i * 0.06);
-                                o2.stop(now + i * 0.06 + 0.15); }); }
-                    };
-                    if (types[type]) types[type]();
-                } catch (e) {}
-            }
-        }
-        const sound = new SoundFX();
-
-        function getPlantById(id) { return ALL_PLANT_TYPES.find(p => p.id === id) || null; }
-
-        const ZOMBIE_TYPES = [
-            { id: 'normal', name: '普通', hp: 100, speed: 0.35, attack: 8 },
-            { id: 'cone', name: '路障', hp: 200, speed: 0.3, attack: 10 },
-            { id: 'bucket', name: '铁桶', hp: 350, speed: 0.25, attack: 12 },
-            { id: 'pole', name: '撑杆', hp: 100, speed: 0.6, attack: 12 },
-            { id: 'newspaper', name: '读报', hp: 150, speed: 0.45, attack: 15 },
-            { id: 'giant', name: '巨人', hp: 500, speed: 0.18, attack: 25 },
-        ];
+        initColumnSelectors();
 
         // ---------- 游戏状态 ----------
-        let game = {
+        let G = {
             running: false,
             age: 8,
             homeName: '我的家园',
             sun: 50,
             score: 0,
             totalTime: 600,
-            remainingTime: 600,
+            remaining: 600,
             plants: [],
             zombies: [],
             projectiles: [],
             particles: [],
-            zombieSpawnTimer: 0,
+            zombieTimer: 0,
             spawnInterval: 2.5,
             houseHP: 10,
             maxHouseHP: 10,
             question: null,
-            questionTimer: 0,
-            questionCooldown: 0,
-            totalCorrect: 0,
-            totalWrong: 0,
+            qTimer: 0,
+            qCooldown: 0,
+            correct: 0,
+            wrong: 0,
             sunTimer: 0,
-            frameCount: 0,
+            frame: 0,
             gameOver: false,
             victory: false,
             bombReady: true,
             bombCooldown: 0,
             bombPlacing: false,
-            rowPlantCount: new Array(ROWS).fill(0),
-            colPlantCount: new Array(COLS).fill(0),
-            columnMap: [],
+            colMap: [],
+            wrongQuestions: [],
+            grassGray: false,
+            sunReward: 25,
         };
 
-        function getZombieById(id) { return ZOMBIE_TYPES.find(z => z.id === id); }
-        function randomInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
-        function randomFloat(a, b) { return Math.random() * (b - a) + a; }
-
-        function updateRowCounts() {
-            game.rowPlantCount = new Array(ROWS).fill(0);
-            game.colPlantCount = new Array(COLS).fill(0);
-            for (let p of game.plants) {
-                if (p.hp > 0) {
-                    game.rowPlantCount[p.row]++;
-                    game.colPlantCount[p.col]++;
-                }
-            }
-        }
-
         // ---------- 口算 ----------
-        function generateQuestion(age) {
-            let a, b, op, answer;
-            let maxNum = age <= 6 ? 10 : age <= 8 ? 20 : age <= 10 ? 50 : age <= 12 ? 100 : 200;
+        function genQuestion(age) {
+            let a, b, op, ans;
+            const max = age <= 6 ? 10 : age <= 8 ? 20 : age <= 10 ? 50 : age <= 12 ? 100 : 200;
             const ops = ['+', '-'];
             if (age >= 9) ops.push('×');
             if (age >= 11) ops.push('÷');
-            op = ops[randomInt(0, ops.length - 1)];
-            if (op === '+') { a = randomInt(1, maxNum);
-                b = randomInt(1, maxNum);
-                answer = a + b; } else if (op === '-') { a = randomInt(1, maxNum);
-                b = randomInt(1, maxNum); if (a < b)[a, b] = [b, a];
-                answer = a - b; } else if (op === '×') { a = randomInt(1, Math.min(9, maxNum / 2));
-                b = randomInt(1, Math.min(9, maxNum / 2));
-                answer = a * b; } else if (op === '÷') { b = randomInt(1, Math.min(9, maxNum / 2));
-                let q = randomInt(1, Math.min(9, maxNum / 2));
+            op = ops[rand(0, ops.length - 1)];
+            if (op === '+') { a = rand(1, max);
+                b = rand(1, max);
+                ans = a + b; } else if (op === '-') { a = rand(1, max);
+                b = rand(1, max); if (a < b)[a, b] = [b, a];
+                ans = a - b; } else if (op === '×') { a = rand(1, Math.min(9, max / 2));
+                b = rand(1, Math.min(9, max / 2));
+                ans = a * b; } else { b = rand(1, Math.min(9, max / 2));
+                const q = rand(1, Math.min(9, max / 2));
                 a = b * q;
-                answer = q; }
-            let options = [answer];
-            let attempts = 0;
-            while (options.length < 3 && attempts < 50) {
-                attempts++;
-                let offset = randomInt(1, Math.max(3, Math.floor(answer * 0.3) + 1));
-                if (Math.random() > 0.5) offset = -offset;
-                let c = answer + offset;
-                if (c >= 0 && !options.includes(c)) options.push(c);
+                ans = q; }
+            const opts = [ans];
+            for (let i = 0; opts.length < 3; i++) {
+                const off = rand(1, Math.max(3, Math.floor(ans * .3) + 1)) * (Math.random() > .5 ? 1 : -1);
+                const c = ans + off;
+                if (c >= 0 && !opts.includes(c)) opts.push(c);
             }
-            while (options.length < 3) {
-                let c = answer + options.length;
-                if (c >= 0 && !options.includes(c)) options.push(c);
-            }
-            for (let i = options.length - 1; i > 0; i--) { let j = randomInt(0, i);
-                [options[i], options[j]] = [options[j], options[i]]; }
-            return { text: `${a} ${op} ${b} = ?`, answer, options };
+            while (opts.length < 3) opts.push(ans + opts.length);
+            for (let i = opts.length - 1; i > 0; i--) { const j = rand(0, i);
+                [opts[i], opts[j]] = [opts[j], opts[i]]; }
+            return { text: `${a} ${op} ${b} = ?`, answer: ans, options: opts };
         }
 
-        // ---------- 种植函数 ----------
-        function getCellCenter(row, col) {
-            return { x: gridOffsetX + col * cellWidth + cellWidth / 2, y: gridOffsetY + row * cellHeight + cellHeight / 2 };
-        }
+        // ---------- 种植逻辑 ----------
+        function getColPlant(c) { return G.colMap[c] || null; }
 
-        function getPlantForColumn(col) {
-            if (col < 0 || col >= COLS) return null;
-            return game.columnMap[col] || null;
-        }
-
-        function findBestPosition(plantType) {
-            let emptyCells = [];
-            for (let r = 0; r < ROWS; r++) {
+        function findPos(plantType) {
+            const empty = [];
+            for (let r = 0; r < ROWS; r++)
                 for (let c = 0; c < COLS; c++) {
-                    if (!game.plants.some(p => p.row === r && p.col === c && p.hp > 0)) {
-                        emptyCells.push({ row: r, col: c });
-                    }
+                    if (!G.plants.some(p => p.row === r && p.col === c && p.hp > 0)) empty.push({ row: r, col: c });
+                }
+            if (!empty.length) return null;
+            const threat = Array(ROWS).fill(0);
+            G.zombies.forEach(z => { if (z.hp > 0 && z.row >= 0 && z.row < ROWS) { const d = z.x - GX; if (d > 0 && d <
+                        800) threat[z.row] += 20 / (d + 1); } });
+            const rows = Array.from({ length: ROWS }, (_, i) => i).sort((a, b) => threat[b] - threat[a]);
+            for (const r of rows) {
+                if (threat[r] === 0 && threat.some(t => t > 0)) continue;
+                const candidates = empty.filter(c => c.row === r).sort((a, b) => a.col - b.col);
+                for (const cell of candidates) {
+                    if (cell.col < COLS && (getColPlant(cell.col) === plantType)) return cell;
                 }
             }
-            if (emptyCells.length === 0) return null;
-
-            let rowThreat = new Array(ROWS).fill(0);
-            for (let z of game.zombies) {
-                if (z.hp > 0 && z.row >= 0 && z.row < ROWS) {
-                    let dist = z.x - gridOffsetX;
-                    if (dist > 0 && dist < 800) {
-                        rowThreat[z.row] += 20 / (dist + 1);
-                    }
-                }
-            }
-
-            let sortedRows = Array.from({ length: ROWS }, (_, i) => i)
-                .sort((a, b) => rowThreat[b] - rowThreat[a]);
-
-            for (let r of sortedRows) {
-                if (rowThreat[r] === 0 && rowThreat.some(t => t > 0)) continue;
-                let candidates = emptyCells.filter(c => c.row === r);
-                if (candidates.length === 0) continue;
-                candidates.sort((a, b) => a.col - b.col);
-                for (let cell of candidates) {
-                    let allowedPlant = getPlantForColumn(cell.col);
-                    if (allowedPlant === plantType) {
-                        return cell;
-                    }
-                }
-            }
-
-            for (let r = 0; r < ROWS; r++) {
+            for (let r = 0; r < ROWS; r++)
                 for (let c = 0; c < COLS; c++) {
-                    if (emptyCells.some(cell => cell.row === r && cell.col === c)) {
-                        if (getPlantForColumn(c) === plantType) {
-                            return { row: r, col: c };
-                        }
-                    }
+                    if (empty.some(e => e.row === r && e.col === c) && getColPlant(c) === plantType)
+                        return { row: r, col: c };
                 }
-            }
             return null;
         }
 
         function autoPlant() {
-            if (game.plants.filter(p => p.hp > 0).length >= ROWS * COLS) return;
-
-            let candidates = [];
+            if (G.plants.filter(p => p.hp > 0).length >= ROWS * COLS) return;
+            const candidates = [];
             for (let c = 0; c < COLS; c++) {
-                let plantId = getPlantForColumn(c);
-                if (!plantId) continue;
-                let def = getPlantById(plantId);
-                if (!def) continue;
-                if (game.sun < def.cost) continue;
-                if (game.colPlantCount[c] >= ROWS) continue;
-                candidates.push({ col: c, plantId: plantId });
+                const pid = getColPlant(c);
+                if (!pid) continue;
+                const def = getPlant(pid);
+                if (!def || G.sun < def.cost || G.plants.filter(p => p.col === c && p.hp > 0).length >= ROWS) continue;
+                candidates.push({ col: c, pid });
             }
-
-            if (candidates.length === 0) return;
-
-            let colThreat = new Array(COLS).fill(0);
-            for (let z of game.zombies) {
-                if (z.hp > 0) {
-                    let zCol = Math.floor((z.x - gridOffsetX) / cellWidth);
-                    if (zCol >= 0 && zCol < COLS) {
-                        let dist = z.x - gridOffsetX;
-                        if (dist > 0 && dist < 600) {
-                            colThreat[zCol] += 10 / (dist + 1);
-                        }
-                    }
-                }
-            }
-            candidates.sort((a, b) => colThreat[b.col] - colThreat[a.col]);
-
-            for (let cand of candidates) {
-                let pos = findBestPosition(cand.plantId);
-                if (pos) {
-                    let def = getPlantById(cand.plantId);
-                    if (!def) continue;
-                    if (game.sun < def.cost) continue;
-
-                    game.sun -= def.cost;
-                    let p = getCellCenter(pos.row, pos.col);
-                    let newPlant = {
-                        type: cand.plantId,
-                        row: pos.row,
-                        col: pos.col,
-                        x: p.x,
-                        y: p.y,
-                        hp: def.hp,
-                        maxHp: def.hp,
-                        attack: def.attack,
-                        timer: 0,
-                        attackTimer: 0,
-                        cooldown: 1.2,
-                        state: 'idle'
-                    };
-                    game.plants.push(newPlant);
-                    if (cand.plantId === 'sunflower') newPlant.timer = 0;
-                    if (cand.plantId === 'potato') newPlant.cooldown = 0.5;
-                    sound.play('plant');
-                    updateRowCounts();
-                    let colName = pos.col + 1;
-                    showStatus(`🌱 种 ${def.emoji} 第${colName}列 第${pos.row+1}行`, '#2ecc71');
-                    return;
-                }
+            if (!candidates.length) return;
+            const threat = Array(COLS).fill(0);
+            G.zombies.forEach(z => { if (z.hp > 0) { const zc = Math.floor((z.x - GX) / CW); if (zc >= 0 && zc < COLS) { const
+                        d = z.x - GX; if (d > 0 && d < 600) threat[zc] += 10 / (d + 1); } } });
+            candidates.sort((a, b) => threat[b.col] - threat[a.col]);
+            for (const cand of candidates) {
+                const def = getPlant(cand.pid);
+                if (!def || G.sun < def.cost) continue;
+                const pos = findPos(cand.pid);
+                if (!pos) continue;
+                G.sun -= def.cost;
+                const p = cellCenter(pos.row, pos.col);
+                const plant = { type: cand.pid, row: pos.row, col: pos.col, x: p.x, y: p.y, hp: def.hp, maxHp: def.hp,
+                    atk: def.atk, timer: 0, atkTimer: 0, cooldown: 1.2 };
+                if (cand.pid === 'sunflower') plant.timer = 0;
+                if (cand.pid === 'potato') plant.cooldown = .5;
+                G.plants.push(plant);
+                sound.play('plant');
+                showStatus(`🌱 种 ${def.emoji} 第${pos.col+1}列`, '#2ecc71');
+                return;
             }
         }
 
         // ---------- 樱桃炸弹 ----------
-        function placeCherryBomb(row, col) {
-            let cost = CHERRY_BOMB.cost;
-            if (game.sun < cost) {
-                showStatus('❌ 阳光不足！需要 ' + cost, '#e74c3c');
-                return false;
-            }
-            let occupied = game.plants.some(p => p.row === row && p.col === col && p.hp > 0);
-            if (occupied) {
-                showStatus('❌ 该位置已被植物占用', '#e74c3c');
-                return false;
-            }
-            game.sun -= cost;
-            let pos = getCellCenter(row, col);
-
-            let explodeRange = 1;
-            let damage = 150;
+        function placeCherry(row, col) {
+            if (G.sun < CHERRY.cost) { showStatus('❌ 阳光不足！', '#e74c3c'); return false; }
+            G.sun -= CHERRY.cost;
+            const pos = cellCenter(row, col);
+            for (let k = 0; k < 40; k++) G.particles.push({ x: pos.x + randF(-40, 40), y: pos.y + randF(-40, 40),
+                color: ['#e74c3c', '#f39c12', '#f1c40f', '#ff6b6b'][rand(0, 3)], life: 30 + rand(0, 25),
+                vx: randF(-10, 10), vy: randF(-10, 10), size: randF(6, 18) });
             let killed = 0;
-
-            for (let k = 0; k < 40; k++) {
-                game.particles.push({
-                    x: pos.x + randomFloat(-40, 40),
-                    y: pos.y + randomFloat(-40, 40),
-                    color: ['#e74c3c', '#f39c12', '#f1c40f', '#ff6b6b'][randomInt(0, 3)],
-                    life: 30 + randomInt(0, 25),
-                    vx: randomFloat(-10, 10),
-                    vy: randomFloat(-10, 10),
-                    size: randomFloat(6, 18)
-                });
+            for (const z of G.zombies) {
+                const zc = Math.floor((z.x - GX) / CW);
+                if (z.row >= row - 1 && z.row <= row + 1 && zc >= col - 1 && zc <= col + 1) {
+                    z.hp -= 150;
+                    if (z.hp <= 0) { killed++;
+                        sound.play('zombieDie'); }
+                }
             }
-
-            for (let z of game.zombies) {
-                let zCol = Math.floor((z.x - gridOffsetX) / cellWidth);
-                if (z.row >= row - explodeRange && z.row <= row + explodeRange &&
-                    zCol >= col - explodeRange && zCol <= col + explodeRange) {
-                    z.hp -= damage;
-                    if (z.hp <= 0) {
-                        killed++;
-                        sound.play('zombieDie');
-                        for (let k = 0; k < 12; k++) {
-                            game.particles.push({
-                                x: z.x + randomFloat(-20, 20),
-                                y: z.y + randomFloat(-20, 20),
-                                color: '#2ecc71',
-                                life: 20 + randomInt(0, 15),
-                                vx: randomFloat(-5, 5),
-                                vy: randomFloat(-5, 5),
-                                size: randomFloat(4, 10)
-                            });
-                        }
+            G.zombies = G.zombies.filter(z => z.hp > 0);
+            for (const p of G.plants) {
+                if (p.row >= row - 1 && p.row <= row + 1 && p.col >= col - 1 && p.col <= col + 1) {
+                    p.hp -= 75;
+                    if (p.hp <= 0) {
+                        p.hp = 0;
+                        for (let k = 0; k < 8; k++) G.particles.push({ x: p.x + randF(-20, 20), y: p.y + randF(-20,
+                                20), color: '#e67e22', life: 20 + rand(0, 15), vx: randF(-4, 4), vy: randF(-4,
+                                4), size: randF(4, 10) });
                     }
                 }
             }
-            game.zombies = game.zombies.filter(z => z.hp > 0);
-
+            G.plants = G.plants.filter(p => p.hp > 0);
             sound.play('bomb');
-            showStatus(`💥 樱桃炸弹爆炸！消灭 ${killed} 只僵尸`, '#e74c3c');
+            showStatus(`💥 消灭 ${killed} 只僵尸`, '#e74c3c');
             return true;
         }
 
-        // ---------- 僵尸生成 ----------
-        function spawnZombie(zombieId, row) {
-            let def = getZombieById(zombieId);
+        // ---------- 僵尸 ----------
+        function spawnZombie(id, row) {
+            const def = getZombie(id);
             if (!def) return;
-            let elapsed = game.totalTime - game.remainingTime;
-            let hpMul = 1 + elapsed / 600 * 0.8;
-            let speedMul = 1 + elapsed / 600 * 0.3;
-            let hp = Math.round(def.hp * hpMul);
-            let speed = def.speed * speedMul * (0.9 + Math.random() * 0.2) * ZOMBIE_SPEED_FACTOR;
-            let x = W - 40 - Math.random() * 60;
-            let z = {
-                type: zombieId,
+            const elapsed = G.totalTime - G.remaining;
+            const hp = Math.round(def.hp * (1 + elapsed / 600 * .8));
+            const speed = def.speed * (1 + elapsed / 600 * .3) * (.9 + Math.random() * .2) * .9;
+            const z = {
+                type: id,
                 row,
-                x,
-                y: gridOffsetY + row * cellHeight + cellHeight / 2,
-                hp: hp,
+                x: W - 40 - Math.random() * 60,
+                y: GY + row * CH + CH / 2,
+                hp,
                 maxHp: hp,
-                speed: speed,
-                attack: def.attack,
-                attackCooldown: 0,
+                speed,
+                atk: def.atk,
+                atkCD: 0,
                 state: 'walking',
                 stateTimer: 0,
                 name: def.name,
                 emoji: '🧟'
             };
-            if (zombieId === 'pole') { z.state = 'jumping';
-                z.stateTimer = 0.5;
+            if (id === 'pole') { z.state = 'jumping';
+                z.stateTimer = .5;
                 z.speed = speed * 1.8; }
-            if (zombieId === 'newspaper') { z.state = 'raging';
+            if (id === 'newspaper') { z.state = 'raging';
                 z.speed = speed * 1.2; }
-            game.zombies.push(z);
+            G.zombies.push(z);
             sound.play('zombie');
         }
 
-        function spawnRandomZombie() {
-            let elapsed = game.totalTime - game.remainingTime;
-            let available = ['normal'];
-            if (elapsed > 30) available.push('cone');
-            if (elapsed > 60) available.push('bucket');
-            if (elapsed > 100) available.push('pole');
-            if (elapsed > 140) available.push('newspaper');
-            if (elapsed > 200) available.push('giant');
-            let weights = [1, 1, 1, 1, 1, 1];
-            if (elapsed > 120) weights = [1, 1, 1, 2, 2, 1];
-            if (elapsed > 240) weights = [1, 1, 2, 2, 3, 2];
-            if (elapsed > 360) weights = [1, 2, 2, 3, 3, 3];
-            let pool = [];
-            available.forEach((id, idx) => {
-                for (let i = 0; i < weights[idx]; i++) pool.push(id);
-            });
-            let pick = pool[randomInt(0, pool.length - 1)] || 'normal';
-            let row = randomInt(0, ROWS - 1);
-            spawnZombie(pick, row);
+        function spawnRandom() {
+            const elapsed = G.totalTime - G.remaining;
+            const avail = ['normal'];
+            if (elapsed > 30) avail.push('cone');
+            if (elapsed > 60) avail.push('bucket');
+            if (elapsed > 100) avail.push('pole');
+            if (elapsed > 140) avail.push('newspaper');
+            if (elapsed > 200) avail.push('giant');
+            const weights = [
+                [1, 1, 1, 1, 1, 1],
+                [1, 1, 1, 2, 2, 1],
+                [1, 1, 2, 2, 3, 2],
+                [1, 2, 2, 3, 3, 3]
+            ];
+            const wi = elapsed > 360 ? 3 : elapsed > 240 ? 2 : elapsed > 120 ? 1 : 0;
+            const pool = [];
+            avail.forEach((id, idx) => { for (let i = 0; i < weights[wi][idx]; i++) pool.push(id); });
+            const pick = pool[rand(0, pool.length - 1)] || 'normal';
+            spawnZombie(pick, rand(0, ROWS - 1));
         }
 
         // ---------- 攻击 ----------
         function plantAttack(plant, zombie) {
-            if (plant.attack <= 0) return;
-            let dx = zombie.x - plant.x,
+            if (plant.atk <= 0) return;
+            const dx = zombie.x - plant.x,
                 dy = zombie.y - plant.y;
             if (Math.sqrt(dx * dx + dy * dy) < 300) {
-                let angle = Math.atan2(dy, dx),
-                    speed = 4;
-                game.projectiles.push({
-                    x: plant.x,
-                    y: plant.y - 10,
-                    row: plant.row,
-                    damage: plant.attack,
-                    speed,
-                    vx: Math.cos(angle) * speed,
-                    vy: Math.sin(angle) * speed,
-                    type: plant.type === 'icepea' ? 'ice' : 'normal',
-                    life: 120
-                });
+                const angle = Math.atan2(dy, dx),
+                    spd = 4;
+                G.projectiles.push({ x: plant.x, y: plant.y - 10, row: plant.row, damage: plant.atk, vx: Math.cos(
+                        angle) * spd, vy: Math.sin(angle) * spd, type: plant.type === 'icepea' ? 'ice' : 'normal',
+                    life: 120 });
                 sound.play('shoot');
             }
         }
 
         function updateProjectiles() {
-            for (let i = game.projectiles.length - 1; i >= 0; i--) {
-                let p = game.projectiles[i];
+            for (let i = G.projectiles.length - 1; i >= 0; i--) {
+                const p = G.projectiles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.life--;
-                if (p.x > W || p.x < 0 || p.y < 0 || p.y > H || p.life <= 0) { game.projectiles.splice(i, 1); continue; }
+                if (--p.life <= 0 || p.x > W || p.x < 0 || p.y < 0 || p.y > H) { G.projectiles.splice(i, 1); continue; }
                 let hit = false;
-                for (let z of game.zombies) {
+                for (const z of G.zombies) {
                     if (z.row === p.row && Math.abs(z.x - p.x) < 35 && Math.abs(z.y - p.y) < 35 && z.hp > 0) {
                         z.hp -= p.damage;
-                        if (p.type === 'ice') z.speed = Math.max(0.2, z.speed * 0.7);
-                        for (let k = 0; k < 6; k++) {
-                            game.particles.push({ x: p.x, y: p.y, color: '#f1c40f', life: 20 + randomInt(0, 20),
-                                vx: randomFloat(-3, 3), vy: randomFloat(-3, 3), size: randomFloat(3, 8) });
-                        }
+                        if (p.type === 'ice') z.speed = Math.max(.2, z.speed * .7);
+                        for (let k = 0; k < 6; k++) G.particles.push({ x: p.x, y: p.y, color: '#f1c40f', life: 20 +
+                                rand(0, 20), vx: randF(-3, 3), vy: randF(-3, 3), size: randF(3, 8) });
                         if (z.hp <= 0) sound.play('zombieDie');
                         hit = true;
                         break;
                     }
                 }
-                if (hit) game.projectiles.splice(i, 1);
+                if (hit) G.projectiles.splice(i, 1);
             }
         }
 
         // ---------- 更新 ----------
-        function update(delta) {
-            if (!game.running || game.gameOver) return;
+        function update(dt) {
+            if (!G.running || G.gameOver) return;
+            G.frame++;
+            const elapsed = G.totalTime - G.remaining;
 
-            game.frameCount++;
-            let elapsed = game.totalTime - game.remainingTime;
-
-            game.remainingTime -= delta;
-            if (game.remainingTime <= 0) {
-                game.remainingTime = 0;
-                game.victory = true;
-                game.gameOver = true;
-                game.running = false;
+            G.remaining -= dt;
+            if (G.remaining <= 0) {
+                G.remaining = 0;
+                G.victory = true;
+                G.gameOver = true;
+                G.running = false;
                 showStatus('🎉 恭喜你坚持了10分钟！', '#f1c40f');
                 sound.play('victory');
                 updateTimeDisplay();
-                setTimeout(() => endGame(true), 2000);
+                setTimeout(() => endGame(true), 1500);
                 return;
             }
             updateTimeDisplay();
 
-            game.sunTimer += delta;
-            if (game.sunTimer > 3.0) {
-                game.sunTimer = 0;
-                game.sun += 2;
-            }
+            G.sunTimer += dt;
+            if (G.sunTimer > 3) { G.sunTimer = 0;
+                G.sun += 2; }
 
-            for (let p of game.plants) {
+            for (const p of G.plants) {
                 if (p.type === 'sunflower' && p.hp > 0) {
-                    p.timer += delta;
-                    if (p.timer > 6.0) {
-                        p.timer = 0;
-                        game.sun += 7;
+                    p.timer += dt;
+                    if (p.timer > 6) { p.timer = 0;
+                        G.sun += 7;
                         showStatus('🌻 +7 阳光', '#f1c40f');
-                        sound.play('plant');
-                    }
+                        sound.play('plant'); }
                 }
             }
 
-            if (game.questionCooldown > 0) {
-                game.questionCooldown -= delta;
-            } else if (!game.question) {
-                game.question = generateQuestion(game.age);
-                game.questionTimer = 8.0;
-            } else {
-                game.questionTimer -= delta;
-                if (game.questionTimer <= 0) {
-                    game.sun = Math.max(0, game.sun - 5);
-                    game.totalWrong++;
-                    game.question = null;
-                    game.questionCooldown = 0.5;
+            // 口算
+            if (G.qCooldown > 0) G.qCooldown -= dt;
+            else if (!G.question) { G.question = genQuestion(G.age);
+                G.qTimer = 8; } else {
+                G.qTimer -= dt;
+                if (G.qTimer <= 0) {
+                    G.wrongQuestions.push({ question: G.question.text, correctAnswer: G.question.answer,
+                    userAnswer: '超时' });
+                    G.sun = Math.max(0, G.sun - 5);
+                    G.wrong++;
+                    G.grassGray = true;
+                    G.question = null;
+                    G.qCooldown = .5;
                     showStatus('⏰ 超时 -5', '#e74c3c');
                     sound.play('wrong');
                 }
             }
 
-            if (game.frameCount % 24 === 0) {
-                autoPlant();
-            }
+            if (G.frame % 24 === 0) autoPlant();
 
-            for (let p of game.plants) {
-                if (p.hp <= 0 || p.attack <= 0) continue;
+            // 植物攻击
+            for (const p of G.plants) {
+                if (p.hp <= 0 || p.atk <= 0) continue;
                 let target = null,
-                    minDist = 500;
-                for (let z of game.zombies) {
+                    minD = 500;
+                for (const z of G.zombies) {
                     if (z.row !== p.row || z.hp <= 0) continue;
-                    let dx = z.x - p.x;
-                    if (dx > 0 && dx < minDist) { minDist = dx;
+                    const dx = z.x - p.x;
+                    if (dx > 0 && dx < minD) { minD = dx;
                         target = z; }
                 }
-                if (target) {
-                    p.attackTimer += delta;
-                    if (p.attackTimer >= p.cooldown) {
-                        p.attackTimer = 0;
-                        plantAttack(p, target);
-                    }
-                }
+                if (target) { p.atkTimer += dt; if (p.atkTimer >= p.cooldown) { p.atkTimer = 0;
+                        plantAttack(p, target); } }
             }
 
-            const houseX = 60;
-            const doorWidth = 18;
-            const doorX = houseX + 12;
-            const doorRight = doorX + doorWidth;
-
-            for (let z of game.zombies) {
+            // 僵尸移动
+            const doorRight = HOUSE_X + 12 + DOOR_W;
+            for (const z of G.zombies) {
                 if (z.hp <= 0) continue;
-                if (z.state === 'jumping') {
-                    z.stateTimer -= delta;
-                    z.x -= z.speed * delta * 60;
-                    if (z.stateTimer <= 0) {
-                        z.state = 'walking';
-                        z.speed = z.speed * 0.6;
-                    }
-                    continue;
-                }
-                if (z.state === 'raging') {
-                    if (z.hp < z.maxHp * 0.3) z.speed = z.speed * 1.3;
-                }
+                if (z.state === 'jumping') { z.stateTimer -= dt;
+                    z.x -= z.speed * dt * 60; if (z.stateTimer <= 0) { z.state = 'walking';
+                        z.speed *= .6; } continue; }
+                if (z.state === 'raging' && z.hp < z.maxHp * .3) z.speed *= 1.3;
                 let eating = false;
-                for (let p of game.plants) {
+                for (const p of G.plants) {
                     if (p.row !== z.row || p.hp <= 0) continue;
                     if (Math.abs(z.x - p.x) < 50 && Math.abs(z.y - p.y) < 40) {
                         eating = true;
-                        z.attackCooldown -= delta;
-                        if (z.attackCooldown <= 0) {
-                            p.hp -= z.attack * 0.3;
-                            z.attackCooldown = 0.8;
-                            if (p.hp <= 0) {
-                                p.hp = 0;
-                                showStatus(`💀 ${p.type}被吃`, '#e74c3c');
-                            }
-                        }
+                        z.atkCD -= dt;
+                        if (z.atkCD <= 0) { p.hp -= z.atk * .3;
+                            z.atkCD = .8; if (p.hp <= 0) showStatus(`💀 ${p.type}被吃`, '#e74c3c'); }
                         break;
                     }
                 }
-                if (!eating) {
-                    z.x -= z.speed * delta * 60;
-                    z.attackCooldown = 0;
-                }
-                if (z.x < 140) {
-                    game.houseHP -= 1;
+                if (!eating) { z.x -= z.speed * dt * 60;
+                    z.atkCD = 0; }
+                if (z.x < doorRight) {
+                    G.houseHP--;
                     z.hp = 0;
                     sound.play('houseHit');
-                    showStatus(`💔 房子受损 (${game.houseHP})`, '#e74c3c');
-                    if (game.houseHP <= 0) {
-                        game.gameOver = true;
-                        game.running = false;
+                    showStatus(`💔 房子受损 (${G.houseHP})`, '#e74c3c');
+                    if (G.houseHP <= 0) { G.gameOver = true;
+                        G.running = false;
                         sound.play('gameover');
                         showStatus('💀 游戏结束！', '#e74c3c');
-                        setTimeout(() => endGame(false), 2000);
-                        return;
-                    }
+                        setTimeout(() => endGame(false), 1500);
+                        return; }
                 }
             }
 
             updateProjectiles();
 
-            let minInterval = 0.4;
-            let maxInterval = 2.5;
-            let progress = Math.min(elapsed / 600, 1);
-            let currentInterval = maxInterval - (maxInterval - minInterval) * progress;
-            game.spawnInterval = currentInterval;
-
-            game.zombieSpawnTimer += delta;
-            if (game.zombieSpawnTimer >= game.spawnInterval) {
-                game.zombieSpawnTimer = 0;
-                spawnRandomZombie();
-                if (elapsed > 300 && Math.random() < 0.2) spawnRandomZombie();
-                if (elapsed > 450 && Math.random() < 0.3) spawnRandomZombie();
+            // 生成僵尸
+            const prog = Math.min(elapsed / 600, 1);
+            G.spawnInterval = 2.5 - (2.5 - .4) * prog;
+            G.zombieTimer += dt;
+            if (G.zombieTimer >= G.spawnInterval) {
+                G.zombieTimer = 0;
+                spawnRandom();
+                if (elapsed > 300 && Math.random() < .2) spawnRandom();
+                if (elapsed > 450 && Math.random() < .3) spawnRandom();
             }
 
-            game.plants = game.plants.filter(p => p.hp > 0);
-            game.zombies = game.zombies.filter(z => z.hp > 0);
+            G.plants = G.plants.filter(p => p.hp > 0);
+            G.zombies = G.zombies.filter(z => z.hp > 0);
             updateRowCounts();
 
-            for (let i = game.particles.length - 1; i >= 0; i--) {
-                let p = game.particles[i];
+            for (let i = G.particles.length - 1; i >= 0; i--) {
+                const p = G.particles[i];
                 p.x += p.vx;
                 p.y += p.vy;
-                p.life--;
-                p.vx *= 0.95;
-                p.vy *= 0.95;
-                if (p.life <= 0) game.particles.splice(i, 1);
+                p.vx *= .95;
+                p.vy *= .95;
+                if (--p.life <= 0) G.particles.splice(i, 1);
             }
 
-            if (!game.bombReady) {
-                game.bombCooldown -= delta;
-                if (game.bombCooldown <= 0) {
-                    game.bombReady = true;
+            // 樱桃炸弹
+            if (!G.bombReady) {
+                G.bombCooldown -= dt;
+                if (G.bombCooldown <= 0) { G.bombReady = true;
                     skillBtn.classList.remove('cooldown');
                     skillBtn.classList.add('ready');
-                    skillBadge.textContent = '点击格子放置';
-                } else {
-                    skillBtn.classList.add('cooldown');
-                    skillBadge.textContent = Math.ceil(game.bombCooldown) + 's';
-                }
+                    skillBadge.textContent = '点击格子放置'; } else { skillBadge.textContent = Math.ceil(G.bombCooldown) +
+                        's'; }
             } else {
                 skillBtn.classList.remove('cooldown');
                 skillBtn.classList.add('ready');
-                if (!game.bombPlacing) {
-                    skillBadge.textContent = '点击格子放置';
-                } else {
-                    skillBadge.textContent = '👆 点击草坪';
-                }
+                skillBadge.textContent = G.bombPlacing ? '👆 点击草坪' : '点击格子放置';
             }
-            if (game.sun < CHERRY_BOMB.cost) {
-                skillBtn.style.opacity = '0.5';
-            } else {
-                skillBtn.style.opacity = '1';
-            }
+            skillBtn.style.opacity = G.sun < CHERRY.cost ? '.5' : '1';
+        }
+
+        function updateRowCounts() {
+            // used for planting strategy
         }
 
         function updateTimeDisplay() {
-            let mins = Math.floor(game.remainingTime / 60);
-            let secs = Math.floor(game.remainingTime % 60);
-            timeDisplay.textContent = `⏱️ ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-            if (game.remainingTime < 60) {
-                timeDisplay.style.borderColor = '#e74c3c';
-                timeDisplay.style.color = '#e74c3c';
-            } else {
-                timeDisplay.style.borderColor = '#f1c40f';
-                timeDisplay.style.color = '#f1c40f';
-            }
+            const m = Math.floor(G.remaining / 60),
+                s = Math.floor(G.remaining % 60);
+            timeDisplay.textContent = `⏱️ ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            timeDisplay.style.borderColor = G.remaining < 60 ? '#e74c3c' : '#f1c40f';
+            timeDisplay.style.color = G.remaining < 60 ? '#e74c3c' : '#f1c40f';
         }
 
         // ---------- 绘制 ----------
         function draw() {
             ctx.clearRect(0, 0, W, H);
-            let grad = ctx.createLinearGradient(0, 0, 0, H);
+            const grad = ctx.createLinearGradient(0, 0, 0, H);
             grad.addColorStop(0, '#4a7c3f');
             grad.addColorStop(1, '#2d4a22');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
 
+            // 网格
             for (let r = 0; r < ROWS; r++)
                 for (let c = 0; c < COLS; c++) {
-                    let x = gridOffsetX + c * cellWidth,
-                        y = gridOffsetY + r * cellHeight;
-                    ctx.fillStyle = (r + c) % 2 === 0 ? '#5a8f4c' : '#4a7c3f';
-                    ctx.fillRect(x, y, cellWidth, cellHeight);
-                    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                    const x = GX + c * CW,
+                        y = GY + r * CH;
+                    const gray = G.grassGray;
+                    ctx.fillStyle = (r + c) % 2 === 0 ? (gray ? '#6b6b6b' : '#5a8f4c') : (gray ? '#555' : '#4a7c3f');
+                    ctx.fillRect(x, y, CW, CH);
+                    ctx.strokeStyle = 'rgba(0,0,0,.15)';
                     ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, cellWidth, cellHeight);
-                    if (game.bombPlacing && game.running) {
-                        ctx.fillStyle = 'rgba(255,0,0,0.15)';
-                        ctx.fillRect(x, y, cellWidth, cellHeight);
-                    }
+                    ctx.strokeRect(x, y, CW, CH);
+                    if (G.bombPlacing && G.running) { ctx.fillStyle = 'rgba(255,0,0,.15)';
+                        ctx.fillRect(x, y, CW, CH); }
                 }
 
-            const houseSize = 72;
-            const houseX = 180;
-            const doorWidth = 18;
-            const doorHeight = 22;
-            const windowSize = 12;
-
-            if (game.homeName && game.homeName.length > 0) {
-                const chars = game.homeName.split('');
-                const displayChars = chars.slice(0, 6);
-                const charSize = 40;
-                const spacing = 8;
-                const startX = houseX - 5;
-                const startY = gridOffsetY + 20;
+            // 房子与家园名
+            const hs = HOUSE_SZ,
+                hx = HOUSE_X;
+            // 家园名
+            if (G.homeName) {
+                const chars = G.homeName.slice(0, 10).split('');
+                const sz = 36,
+                    sp = 6,
+                    sx = hx - 26,
+                    sy = GY + 20;
                 ctx.save();
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
                 ctx.fillStyle = '#f1c40f';
-                ctx.font = `bold ${charSize}px sans-serif`;
+                ctx.font = `bold ${sz}px sans-serif`;
                 ctx.shadowBlur = 12;
-                ctx.shadowColor = 'rgba(0,0,0,0.9)';
-                for (let i = 0; i < displayChars.length; i++) {
-                    const y = startY + i * (charSize + spacing);
-                    ctx.fillText(displayChars[i], startX, y);
-                }
+                ctx.shadowColor = 'rgba(0,0,0,.9)';
+                chars.forEach((ch, i) => ctx.fillText(ch, sx, sy + i * (sz + sp)));
                 ctx.restore();
             }
 
+            // 5个小房子
             for (let r = 0; r < ROWS; r++) {
-                let houseY = gridOffsetY + r * cellHeight + (cellHeight - houseSize) / 2;
-
+                const hy = GY + r * CH + (CH - hs) / 2;
                 ctx.shadowBlur = 10;
-                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.shadowColor = 'rgba(0,0,0,.3)';
                 ctx.fillStyle = '#8B4513';
-                ctx.fillRect(houseX, houseY, houseSize, houseSize);
-
+                ctx.fillRect(hx, hy, hs, hs);
                 ctx.fillStyle = '#A0522D';
                 ctx.beginPath();
-                ctx.moveTo(houseX - 4, houseY);
-                ctx.lineTo(houseX + houseSize/2, houseY - 14);
-                ctx.lineTo(houseX + houseSize + 4, houseY);
+                ctx.moveTo(hx - 4, hy);
+                ctx.lineTo(hx + hs / 2, hy - 14);
+                ctx.lineTo(hx + hs + 4, hy);
                 ctx.closePath();
                 ctx.fill();
-
-                const doorX = houseX + 12;
-                const doorY = houseY + houseSize - doorHeight;
+                const dx = hx + 12,
+                    dy = hy + hs - DOOR_H;
                 ctx.fillStyle = '#2c3e50';
-                ctx.fillRect(doorX, doorY, doorWidth, doorHeight);
+                ctx.fillRect(dx, dy, DOOR_W, DOOR_H);
                 ctx.fillStyle = '#f1c40f';
                 ctx.beginPath();
-                ctx.arc(doorX + doorWidth - 4, doorY + doorHeight/2, 3, 0, 2 * Math.PI);
+                ctx.arc(dx + DOOR_W - 4, dy + DOOR_H / 2, 3, 0, 2 * Math.PI);
                 ctx.fill();
-
-                const winX1 = houseX + 6;
-                const winY1 = houseY + 10;
-                const winX2 = houseX + houseSize - 6 - windowSize;
-                const winY2 = houseY + 10;
+                const wx1 = hx + 6,
+                    wy1 = hy + 10,
+                    wx2 = hx + hs - 6 - WIN_SZ,
+                    wy2 = hy + 10;
                 ctx.fillStyle = '#5dade2';
-                ctx.fillRect(winX1, winY1, windowSize, windowSize);
-                ctx.fillRect(winX2, winY2, windowSize, windowSize);
+                ctx.fillRect(wx1, wy1, WIN_SZ, WIN_SZ);
+                ctx.fillRect(wx2, wy2, WIN_SZ, WIN_SZ);
                 ctx.strokeStyle = '#2c3e50';
                 ctx.lineWidth = 1.5;
-                ctx.strokeRect(winX1, winY1, windowSize, windowSize);
-                ctx.strokeRect(winX2, winY2, windowSize, windowSize);
+                ctx.strokeRect(wx1, wy1, WIN_SZ, WIN_SZ);
+                ctx.strokeRect(wx2, wy2, WIN_SZ, WIN_SZ);
                 ctx.beginPath();
-                ctx.moveTo(winX1 + windowSize/2, winY1);
-                ctx.lineTo(winX1 + windowSize/2, winY1 + windowSize);
-                ctx.moveTo(winX1, winY1 + windowSize/2);
-                ctx.lineTo(winX1 + windowSize, winY1 + windowSize/2);
-                ctx.moveTo(winX2 + windowSize/2, winY2);
-                ctx.lineTo(winX2 + windowSize/2, winY2 + windowSize);
-                ctx.moveTo(winX2, winY2 + windowSize/2);
-                ctx.lineTo(winX2 + windowSize, winY2 + windowSize/2);
+                [
+                    [wx1, wy1],
+                    [wx2, wy2]
+                ].forEach(([wx, wy]) => {
+                    ctx.moveTo(wx + WIN_SZ / 2, wy);
+                    ctx.lineTo(wx + WIN_SZ / 2, wy + WIN_SZ);
+                    ctx.moveTo(wx, wy + WIN_SZ / 2);
+                    ctx.lineTo(wx + WIN_SZ, wy + WIN_SZ / 2);
+                });
                 ctx.stroke();
-
                 ctx.shadowBlur = 0;
-                ctx.fillStyle = 'white';
+                ctx.fillStyle = '#fff';
                 ctx.font = '12px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
-                ctx.fillText('❤️' + game.houseHP, houseX + houseSize/2, houseY - 4);
+                ctx.fillText('❤️' + G.houseHP, hx + hs / 2, hy - 4);
             }
             ctx.shadowBlur = 0;
 
-            for (let p of game.plants) {
+            // 植物
+            for (const p of G.plants) {
                 if (p.hp <= 0) continue;
-                let def = getPlantById(p.type);
+                const def = getPlant(p.type);
                 ctx.font = '52px ' + EMOJI_FONT;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.shadowBlur = 12;
-                ctx.shadowColor = 'rgba(0,0,0,0.4)';
-                ctx.fillStyle = 'white';
+                ctx.shadowColor = 'rgba(0,0,0,.4)';
+                ctx.fillStyle = '#fff';
                 ctx.fillText(def ? def.emoji : '🌱', p.x, p.y - 8);
                 ctx.shadowBlur = 0;
-                let hp = p.hp / p.maxHp;
-                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                const hp = p.hp / p.maxHp;
+                ctx.fillStyle = 'rgba(0,0,0,.6)';
                 ctx.fillRect(p.x - 30, p.y - 42, 60, 8);
-                ctx.fillStyle = hp > 0.5 ? '#2ecc71' : (hp > 0.25 ? '#f1c40f' : '#e74c3c');
+                ctx.fillStyle = hp > .5 ? '#2ecc71' : hp > .25 ? '#f1c40f' : '#e74c3c';
                 ctx.fillRect(p.x - 30, p.y - 42, 60 * hp, 8);
             }
 
-            for (let z of game.zombies) {
+            // 僵尸
+            for (const z of G.zombies) {
                 if (z.hp <= 0) continue;
                 ctx.font = '56px ' + EMOJI_FONT;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.shadowBlur = 16;
-                ctx.shadowColor = 'rgba(0,0,0,0.5)';
-                ctx.fillStyle = 'white';
+                ctx.shadowColor = 'rgba(0,0,0,.5)';
+                ctx.fillStyle = '#fff';
                 ctx.fillText('🧟', z.x, z.y - 6);
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = '#ff6b6b';
                 ctx.font = 'bold 16px sans-serif';
                 ctx.fillText(z.name, z.x, z.y + 40);
-                let hp = z.hp / z.maxHp;
-                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                const hp = z.hp / z.maxHp;
+                ctx.fillStyle = 'rgba(0,0,0,.7)';
                 ctx.fillRect(z.x - 35, z.y - 50, 70, 10);
-                ctx.fillStyle = hp > 0.5 ? '#2ecc71' : (hp > 0.25 ? '#f1c40f' : '#e74c3c');
+                ctx.fillStyle = hp > .5 ? '#2ecc71' : hp > .25 ? '#f1c40f' : '#e74c3c';
                 ctx.fillRect(z.x - 35, z.y - 50, 70 * hp, 10);
-                ctx.fillStyle = 'white';
+                ctx.fillStyle = '#fff';
                 ctx.font = '12px sans-serif';
                 ctx.fillText(`${Math.ceil(z.hp)}/${z.maxHp}`, z.x, z.y - 58);
             }
 
-            for (let p of game.projectiles) {
+            // 子弹
+            for (const p of G.projectiles) {
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
                 ctx.fillStyle = p.type === 'ice' ? '#5dade2' : '#27ae60';
@@ -1328,7 +1300,8 @@
                 ctx.shadowBlur = 0;
             }
 
-            for (let p of game.particles) {
+            // 粒子
+            for (const p of G.particles) {
                 ctx.globalAlpha = p.life / 40;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -1337,98 +1310,90 @@
             }
             ctx.globalAlpha = 1;
 
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            // 顶部信息
+            ctx.fillStyle = 'rgba(0,0,0,.5)';
             ctx.fillRect(0, 0, W, 60);
-            ctx.fillStyle = 'white';
+            ctx.fillStyle = '#fff';
             ctx.font = 'bold 26px sans-serif';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`☀️ ${Math.floor(game.sun)}`, 20, 32);
-            ctx.fillText(`❤️ ${game.houseHP}`, 160, 32);
-            ctx.fillText(`✅ ${game.totalCorrect}`, 430, 32);
-            ctx.fillText(`❌ ${game.totalWrong}`, 530, 32);
-            ctx.textAlign = 'right';
-            ctx.fillText(`👶 ${game.age}岁`, W - 20, 32);
+            ctx.fillText(`☀️ ${Math.floor(G.sun)}`, 20, 44);
+            ctx.fillText(`❤️ ${G.houseHP}`, 160, 44);
+            ctx.fillText(`✅ ${G.correct}`, 430, 44);
+            ctx.fillText(`❌ ${G.wrong}`, 530, 44);
+            ctx.fillText(`👶 ${G.age}岁`, 680, 44);
 
-            if (game.question && game.running) {
-                let q = game.question;
-                let centerX = W / 2;
-                let centerY = H / 2 - 20;
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            // 口算题
+            if (G.question && G.running) {
+                const q = G.question,
+                    cx = W / 2,
+                    cy = H / 2 - 20;
+                ctx.fillStyle = 'rgba(0,0,0,.3)';
                 ctx.shadowBlur = 30;
-                ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                ctx.shadowColor = 'rgba(0,0,0,.6)';
                 ctx.beginPath();
-                ctx.roundRect(centerX - 340, centerY - 35, 680, 70, 20);
+                ctx.roundRect(cx - 380, cy - 40, 760, 80, 20);
                 ctx.fill();
                 ctx.shadowBlur = 0;
-
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 60px sans-serif';
+                ctx.fillStyle = '#f39c12';
+                ctx.font = 'bold 64px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(q.text, centerX, centerY);
+                ctx.fillText(q.text, cx, cy);
 
-                let gridBottom = gridOffsetY + ROWS * cellHeight;
-                let optY = gridBottom + 25;
-                let optCenterX = 875;
-
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                const optY = GY + ROWS * CH - 20,
+                    optCX = 875;
+                ctx.fillStyle = 'rgba(0,0,0,.4)';
                 ctx.shadowBlur = 20;
-                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowColor = 'rgba(0,0,0,.5)';
                 ctx.beginPath();
-                ctx.roundRect(optCenterX - 300, optY - 30, 600, 70, 20);
+                ctx.roundRect(optCX - 300, optY - 30, 600, 70, 20);
                 ctx.fill();
                 ctx.shadowBlur = 0;
-
-                let optWidth = 160;
-                let gap = 30;
-                let totalWidth = q.options.length * optWidth + (q.options.length - 1) * gap;
-                let startX = optCenterX - totalWidth / 2;
+                const ow = 160,
+                    gap = 30,
+                    tw = q.options.length * ow + (q.options.length - 1) * gap,
+                    sx = optCX - tw / 2;
                 q._buttons = [];
-                for (let i = 0; i < q.options.length; i++) {
-                    let ox = startX + i * (optWidth + gap);
-                    ctx.fillStyle = 'rgba(44, 62, 80, 0.85)';
+                q.options.forEach((opt, i) => {
+                    const ox = sx + i * (ow + gap);
+                    ctx.fillStyle = 'rgba(44,62,80,.85)';
                     ctx.shadowBlur = 8;
-                    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    ctx.shadowColor = 'rgba(0,0,0,.3)';
                     ctx.beginPath();
-                    ctx.roundRect(ox, optY - 20, optWidth, 50, 14);
+                    ctx.roundRect(ox, optY - 20, ow, 50, 14);
                     ctx.fill();
                     ctx.shadowBlur = 0;
-                    ctx.fillStyle = 'white';
+                    ctx.fillStyle = '#fff';
                     ctx.font = 'bold 34px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(q.options[i], ox + optWidth / 2, optY + 5);
-                    q._buttons.push({ x: ox, y: optY - 20, w: optWidth, h: 50, value: q.options[i] });
-                }
-
-                let tp = game.questionTimer / 8.0;
-                ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                ctx.fillRect(optCenterX - 150, optY + 45, 300, 6);
-                ctx.fillStyle = tp > 0.3 ? '#2ecc71' : '#e74c3c';
-                ctx.fillRect(optCenterX - 150, optY + 45, 300 * Math.max(0, tp), 6);
+                    ctx.fillText(opt, ox + ow / 2, optY + 5);
+                    q._buttons.push({ x: ox, y: optY - 20, w: ow, h: 50, value: opt });
+                });
+                const tp = G.qTimer / 8;
+                ctx.fillStyle = 'rgba(0,0,0,.3)';
+                ctx.fillRect(optCX - 150, optY + 45, 300, 6);
+                ctx.fillStyle = tp > .3 ? '#2ecc71' : '#e74c3c';
+                ctx.fillRect(optCX - 150, optY + 45, 300 * Math.max(0, tp), 6);
             }
 
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(W - 250, H - 40, 230, 28);
+            // 右下植物顺序
+            ctx.fillStyle = 'rgba(0,0,0,.5)';
+            ctx.fillRect(W - 300, H - 50, 280, 36);
             ctx.fillStyle = '#f1c40f';
-            ctx.font = '12px sans-serif';
+            ctx.font = '18px sans-serif';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
-            let colHints = [];
-            for (let c = 0; c < COLS; c++) {
-                let pid = game.columnMap[c] || '';
-                let def = getPlantById(pid);
-                colHints.push(def ? def.emoji : '?');
-            }
-            ctx.fillText(`📋 ${colHints.join(' ')}`, W - 20, H - 24);
+            const hints = G.colMap.map(id => { const d = getPlant(id); return d ? d.emoji : '?'; });
+            ctx.fillText(`📋 ${hints.join(' ')}`, W - 20, H - 30);
         }
 
+        // 扩展 roundRect
         if (!CanvasRenderingContext2D.prototype.roundRect) {
             CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
-                if (r > w/2) r = w/2;
-                if (r > h/2) r = h/2;
+                if (r > w / 2) r = w / 2;
+                if (r > h / 2) r = h / 2;
                 this.moveTo(x + r, y);
                 this.lineTo(x + w - r, y);
                 this.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -1442,7 +1407,8 @@
             };
         }
 
-        let statusTimeout = null;
+        // ---------- 结束 ----------
+        let statusTimeout;
 
         function showStatus(msg, color = '#f1c40f') {
             statusMsg.textContent = msg;
@@ -1454,204 +1420,180 @@
         }
 
         function endGame(victory) {
-            game.running = false;
-            overlay.classList.remove('hidden');
-            let title = victory ? '🎉 胜利！' : '💀 失败...';
-            let sub = victory ? '你成功生存了10分钟！' : '房子被僵尸攻破了...';
-            let stats = `答对 ${game.totalCorrect} 题 · 答错 ${game.totalWrong} 题 · 得分 ${game.score}`;
-            document.querySelector('#overlay h1').textContent = title;
-            document.querySelector('#overlaySub').textContent = sub + '  ' + stats;
+            G.running = false;
+            if (G.wrongQuestions.length) showWrongAnswers();
+            else showSetup(victory);
+        }
+
+        function showWrongAnswers() {
+            wrongList.innerHTML = '';
+            G.wrongQuestions.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'wrong-item';
+                div.innerHTML =
+                    `<div class="q">题目：${item.question}</div><div class="a">正确答案：${item.correctAnswer}</div><div class="u">你的回答：${item.userAnswer}</div>`;
+                wrongList.appendChild(div);
+            });
+            wrongOverlay.classList.add('show');
+        }
+
+        function showSetup(victory) {
+            overlay.classList.add('show');
+            document.querySelector('#overlay h1').textContent = victory ? '🎉 胜利！' : '💀 失败...';
+            document.querySelector('#overlaySub').textContent = (victory ? '你成功生存了10分钟！' : '房子被僵尸攻破了...') +
+                ` 答对 ${G.correct} 题 · 答错 ${G.wrong} 题`;
             startBtn.textContent = '🔄 再来一局';
             startBtn.className = 'btn active';
-            game.bombPlacing = false;
+            G.bombPlacing = false;
             skillBtn.classList.remove('ready');
             skillBtn.classList.add('cooldown');
             skillBadge.textContent = '⏳';
         }
 
+        closeWrong.onclick = () => {
+            wrongOverlay.classList.remove('show');
+            showSetup(G.victory);
+        };
+
+        // ---------- 游戏循环 ----------
         let lastTime = 0;
 
-        function gameLoop(timestamp) {
-            let delta = (timestamp - lastTime) / 1000;
-            if (delta > 0.1) delta = 0.05;
+        function loop(timestamp) {
+            const dt = Math.min((timestamp - lastTime) / 1000, .05);
             lastTime = timestamp;
-            if (game.running) update(delta);
+            if (G.running) update(dt);
             draw();
-            requestAnimationFrame(gameLoop);
+            requestAnimationFrame(loop);
         }
 
-        // ---------- 启动游戏 ----------
+        // ---------- 启动 ----------
         function startGame() {
-            if (!isActivated) {
-                checkActivation();
-                return;
-            }
-
+            if (!isActivated) { checkActivation(); return; }
             sound.resume();
-            let age = parseInt(ageInput.value) || 8;
-            if (age < 4) age = 4;
-            if (age > 18) age = 18;
-
-            let homeName = nameInput.value.trim() || '我的家园';
-            game.homeName = homeName;
-
-            let map = [];
+            G.age = clamp(parseInt(ageInput.value) || 8, 4, 18);
+            G.homeName = nameInput.value.trim().slice(0, 10) || '我的家园';
+            G.colMap = [];
             for (let i = 0; i < COLS; i++) {
-                const select = document.getElementById(`colSelect_${i}`);
-                if (select) {
-                    map.push(select.value);
-                } else {
-                    map.push(DEFAULT_COLUMN_PLANT_IDS[i] || 'sunflower');
-                }
+                const sel = document.getElementById(`colSel_${i}`);
+                G.colMap.push(sel ? sel.value : DEFAULT_COLS[i]);
             }
-            game.columnMap = map;
-
-            game.age = age;
-            game.sun = 50;
-            game.score = 0;
-            game.remainingTime = game.totalTime;
-            game.houseHP = game.maxHouseHP = 10;
-            game.plants = [];
-            game.zombies = [];
-            game.projectiles = [];
-            game.particles = [];
-            game.question = null;
-            game.questionCooldown = 0;
-            game.totalCorrect = 0;
-            game.totalWrong = 0;
-            game.gameOver = false;
-            game.victory = false;
-            game.running = true;
-            game.frameCount = 0;
-            game.bombReady = true;
-            game.bombCooldown = 0;
-            game.bombPlacing = false;
-            game.sunTimer = 0;
-            game.zombieSpawnTimer = 0;
-            game.spawnInterval = 2.5;
-            game.rowPlantCount = new Array(ROWS).fill(0);
-            game.colPlantCount = new Array(COLS).fill(0);
+            G.sunReward = parseInt(diffSelect.value) || 25;
+            G.sun = 50;
+            G.score = 0;
+            G.remaining = G.totalTime;
+            G.houseHP = G.maxHouseHP = 10;
+            G.plants = [];
+            G.zombies = [];
+            G.projectiles = [];
+            G.particles = [];
+            G.question = null;
+            G.qCooldown = 0;
+            G.correct = 0;
+            G.wrong = 0;
+            G.gameOver = false;
+            G.victory = false;
+            G.running = true;
+            G.frame = 0;
+            G.bombReady = true;
+            G.bombCooldown = 0;
+            G.bombPlacing = false;
+            G.sunTimer = 0;
+            G.zombieTimer = 0;
+            G.spawnInterval = 2.5;
+            G.wrongQuestions = [];
+            G.grassGray = false;
 
             skillBtn.classList.remove('cooldown');
             skillBtn.classList.add('ready');
             skillBadge.textContent = '点击格子放置';
-            timeDisplay.style.borderColor = '#f1c40f';
-            timeDisplay.style.color = '#f1c40f';
             updateTimeDisplay();
-
-            overlay.classList.add('hidden');
+            overlay.classList.remove('show');
             showStatus('🌞 生存10分钟开始！', '#2ecc71');
         }
 
-        // ---------- 事件绑定 ----------
-        startBtn.addEventListener('click', startGame);
+        // ---------- 事件 ----------
+        startBtn.onclick = startGame;
+        ageInput.onchange = function() { this.value = clamp(parseInt(this.value) || 8, 4, 18); };
 
-        ageInput.addEventListener('change', function() {
-            let v = parseInt(this.value) || 8;
-            if (v < 4) this.value = 4;
-            if (v > 18) this.value = 18;
-        });
-
-        skillBtn.addEventListener('click', function(e) {
+        skillBtn.onclick = function(e) {
             e.stopPropagation();
-            if (!game.running || game.gameOver) return;
-            if (!game.bombReady) {
-                showStatus('⏳ 技能冷却中...', '#e74c3c');
-                return;
-            }
-            if (game.sun < CHERRY_BOMB.cost) {
-                showStatus('❌ 阳光不足！需要 150', '#e74c3c');
-                return;
-            }
-            game.bombPlacing = !game.bombPlacing;
-            if (game.bombPlacing) {
-                skillBadge.textContent = '👆 点击草坪';
-                skillBtn.style.borderColor = '#ff6b6b';
-                showStatus('💥 点击草坪放置樱桃炸弹', '#f39c12');
-            } else {
-                skillBadge.textContent = '点击格子放置';
-                skillBtn.style.borderColor = '#f1c40f';
-            }
-        });
+            if (!G.running || G.gameOver) return;
+            if (!G.bombReady) { showStatus('⏳ 冷却中...', '#e74c3c'); return; }
+            if (G.sun < CHERRY.cost) { showStatus('❌ 阳光不足！', '#e74c3c'); return; }
+            G.bombPlacing = !G.bombPlacing;
+            skillBadge.textContent = G.bombPlacing ? '👆 点击草坪' : '点击格子放置';
+            skillBtn.style.borderColor = G.bombPlacing ? '#ff6b6b' : '#f1c40f';
+            if (G.bombPlacing) showStatus('💥 点击草坪放置', '#f39c12');
+        };
 
-        function pointerHandler(e) {
+        canvas.addEventListener('pointerdown', function(e) {
             e.preventDefault();
             const rect = canvas.getBoundingClientRect();
-            const scaleX = W / rect.width;
-            const scaleY = H / rect.height;
-            const cx = (e.clientX - rect.left) * scaleX;
-            const cy = (e.clientY - rect.top) * scaleY;
+            const cx = (e.clientX - rect.left) * (W / rect.width);
+            const cy = (e.clientY - rect.top) * (H / rect.height);
             handleClick(cx, cy);
-        }
-        canvas.addEventListener('pointerdown', pointerHandler);
+        });
 
         function handleClick(cx, cy) {
-            if (game.running && game.question) {
-                let q = game.question;
-                if (q._buttons) {
-                    for (let btn of q._buttons) {
-                        if (cx >= btn.x && cx <= btn.x + btn.w && cy >= btn.y && cy <= btn.y + btn.h) {
-                            if (btn.value === q.answer) {
-                                game.sun += 25;
-                                game.totalCorrect++;
-                                game.score += 10;
-                                sound.play('correct');
-                                showStatus('✅ +25 阳光', '#2ecc71');
-                            } else {
-                                game.sun = Math.max(0, game.sun - 5);
-                                game.totalWrong++;
-                                sound.play('wrong');
-                                showStatus('❌ -5 阳光', '#e74c3c');
-                            }
-                            game.question = null;
-                            game.questionCooldown = 0.8;
-                            return;
+            // 答题
+            if (G.running && G.question && G.question._buttons) {
+                for (const btn of G.question._buttons) {
+                    if (cx >= btn.x && cx <= btn.x + btn.w && cy >= btn.y && cy <= btn.y + btn.h) {
+                        if (btn.value === G.question.answer) {
+                            G.sun += G.sunReward;
+                            G.correct++;
+                            G.score += 10;
+                            G.grassGray = false;
+                            sound.play('correct');
+                            showStatus(`✅ +${G.sunReward} 阳光`, '#2ecc71');
+                        } else {
+                            G.wrongQuestions.push({ question: G.question.text, correctAnswer: G.question.answer,
+                                userAnswer: btn.value });
+                            G.sun = Math.max(0, G.sun - 5);
+                            G.wrong++;
+                            G.grassGray = true;
+                            sound.play('wrong');
+                            showStatus('❌ -5 阳光', '#e74c3c');
                         }
+                        G.question = null;
+                        G.qCooldown = .8;
+                        return;
                     }
                 }
             }
 
-            if (game.running && !game.gameOver && game.bombPlacing && game.bombReady) {
-                let col = Math.floor((cx - gridOffsetX) / cellWidth);
-                let row = Math.floor((cy - gridOffsetY) / cellHeight);
+            // 樱桃炸弹
+            if (G.running && !G.gameOver && G.bombPlacing && G.bombReady) {
+                const col = Math.floor((cx - GX) / CW);
+                const row = Math.floor((cy - GY) / CH);
                 if (row >= 0 && row < ROWS && col >= 0 && col < COLS) {
-                    if (placeCherryBomb(row, col)) {
-                        game.bombReady = false;
-                        game.bombCooldown = 5.0;
-                        game.bombPlacing = false;
+                    if (placeCherry(row, col)) {
+                        G.bombReady = false;
+                        G.bombCooldown = 5;
+                        G.bombPlacing = false;
                         skillBtn.style.borderColor = '#f1c40f';
                         skillBtn.classList.remove('ready');
                         skillBtn.classList.add('cooldown');
                         skillBadge.textContent = '5s';
-                        showStatus('⏳ 樱桃炸弹冷却中 (5s)', '#f1c40f');
+                        showStatus('⏳ 冷却中 (5s)', '#f1c40f');
                     }
-                } else {
-                    showStatus('❌ 请点击草坪区域', '#e74c3c');
-                }
+                } else showStatus('❌ 请点击草坪', '#e74c3c');
                 return;
             }
-
-            if (game.bombPlacing) {
-                game.bombPlacing = false;
+            if (G.bombPlacing) {
+                G.bombPlacing = false;
                 skillBtn.style.borderColor = '#f1c40f';
                 skillBadge.textContent = '点击格子放置';
-                showStatus('❌ 已取消放置', '#e74c3c');
+                showStatus('❌ 已取消', '#e74c3c');
             }
         }
 
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'b' || e.key === 'B') skillBtn.click();
-        });
+        document.onkeydown = e => { if (e.key === 'b' || e.key === 'B') skillBtn.click(); };
 
-        // ---------- 启动 ----------
-        (function initGame() {
-            if (isActivated) {
-                overlay.classList.remove('hidden');
-            }
-            requestAnimationFrame(gameLoop);
-            console.log('🎮 口算塔防已加载');
-            console.log('🆔 设备ID:', DEVICE_ID);
-        })();
+        // ---------- 初始化 ----------
+        overlay.classList.add('show');
+        requestAnimationFrame(loop);
+        console.log('🎮 口算塔防 优化版已加载');
     </script>
 </body>
 </html>
