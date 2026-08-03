@@ -457,7 +457,7 @@
             </div>
             <div style="font-size:clamp(12px,1.4vw,18px);opacity:.9;">🌱 设置每列种植的植物（从左到右）</div>
             <div class="col-settings" id="colSettings"></div>
-            <button class="btn active" id="startBtn">🌞 开始游戏</button>
+            <button class="btn active" id="startBtn">🌞 横屏开始游戏</button>
             <div style="font-size:clamp(10px,1.1vw,13px);opacity:.5;">答对获得阳光依难度而定 · 答错 -5 ☀️ · 坚持10分钟胜利！</div>
         </div>
 
@@ -1321,7 +1321,7 @@
             ctx.fillText(`❤️ ${G.houseHP}`, 160, 44);
             ctx.fillText(`✅ ${G.correct}`, 430, 44);
             ctx.fillText(`❌ ${G.wrong}`, 530, 44);
-            ctx.fillText(`👶 ${G.age}岁`, 680, 44);
+            ctx.fillText(`👶 ${G.age}岁`, 1100, 44);
 
             // 口算题
             if (G.question && G.running) {
@@ -1382,7 +1382,7 @@
             ctx.fillStyle = 'rgba(0,0,0,.5)';
             ctx.fillRect(W - 300, H - 50, 280, 36);
             ctx.fillStyle = '#f1c40f';
-            ctx.font = '18px sans-serif';
+            ctx.font = '24px sans-serif';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             const hints = G.colMap.map(id => { const d = getPlant(id); return d ? d.emoji : '?'; });
