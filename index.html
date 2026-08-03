@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
@@ -47,7 +47,8 @@
             cursor: pointer;
             touch-action: none;
         }
-        /* 横屏提示 - 改为由 JS 控制显示 */
+
+        /* ===== 横屏提示（纯CSS控制） ===== */
         #rotateHint {
             display: none;
             position: absolute;
@@ -55,8 +56,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.92);
-            color: white;
+            background: rgba(0, 0, 0, 0.95);
+            color: #fff;
             font-size: 24px;
             justify-content: center;
             align-items: center;
@@ -78,6 +79,18 @@
                 transform: rotate(90deg);
             }
         }
+        @media (orientation: portrait) {
+            #rotateHint {
+                display: flex !important;
+            }
+        }
+        @media (orientation: landscape) {
+            #rotateHint {
+                display: none !important;
+            }
+        }
+
+        /* ===== 覆盖层 ===== */
         #overlay,
         #activatorOverlay {
             position: absolute;
@@ -209,21 +222,21 @@
         #statusMsg.show {
             opacity: 1;
         }
-        /* ---------- 倒计时：放在第一列草坪上方 ---------- */
+
+        /* ===== 倒计时：左上角 top:20 left:20 ===== */
         #timeDisplay {
             position: absolute;
-            top: 15px;          /* GY - 10，放在网格上方 */
-            left: 80px;         /* GX，与第一列左对齐 */
+            top: 20px;
+            left: 20px;
             background: rgba(0, 0, 0, .7);
             color: #f1c40f;
-            padding: 2px 12px;
-            border-radius: 12px;
-            font-size: clamp(16px, 1.8vw, 24px);  /* 调小 */
+            padding: 4px 14px;
+            border-radius: 14px;
+            font-size: clamp(18px, 2.2vw, 30px);
             font-weight: 700;
             z-index: 3;
             border: 2px solid #f1c40f;
             letter-spacing: 1px;
-            transform: none;
         }
         #titleDisplay {
             position: absolute;
@@ -396,20 +409,17 @@
             font-weight: 700;
             cursor: pointer;
         }
-        /* 横屏提示 - 默认隐藏，由 JS 控制 */
-        #rotateHint {
-            display: none !important;  /* 由 JS 接管 */
-        }
+
         /* 手机小屏横屏适配 */
         @media (max-width:600px) and (orientation:landscape) {
             #gameWrapper {
                 border-radius: 0;
             }
             #timeDisplay {
-                top: 115px;
-                left: 275px;
-                font-size: clamp(12px, 1.6vw, 18px);
-                padding: 1px 8px;
+                top: 16px;
+                left: 16px;
+                font-size: clamp(14px, 1.8vw, 20px);
+                padding: 2px 10px;
             }
             #titleDisplay {
                 top: 10px;
@@ -451,31 +461,6 @@
                 font-size: 12px;
             }
         }
-        /* 强制横屏提示 - 用于不支持 orientation 的浏览器 */
-        .force-landscape-hint {
-            display: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.95);
-            color: white;
-            font-size: 24px;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 999;
-            text-align: center;
-            padding: 40px;
-        }
-        .force-landscape-hint .icon {
-            font-size: 80px;
-            animation: rotatePhone 2s infinite;
-        }
-        .force-landscape-hint.show {
-            display: flex;
-        }
     </style>
 </head>
 <body>
@@ -483,8 +468,8 @@
     <div id="gameWrapper">
         <canvas id="gameCanvas" width="1600" height="900"></canvas>
 
-        <!-- 横屏提示（由 JS 控制显示） -->
-        <div id="rotateHint" class="force-landscape-hint">
+        <!-- 横屏提示（CSS控制） -->
+        <div id="rotateHint">
             <div class="icon">📱</div>
             <p style="margin-top:20px;">请将手机<b>横屏</b>玩游戏</p>
             <p style="font-size:16px; opacity:0.6; margin-top:10px;">转动手机后自动进入</p>
@@ -542,65 +527,8 @@
 
     <script>
         // ============================================================
-        //  口算塔防 - 优化版 + 横屏锁定 + 倒计时位置调整
+        //  口算塔防 - 完整版（横屏CSS控制，倒计时左上角）
         // ============================================================
-
-        // ---------- 横屏控制 ----------
-        const rotateHint = document.getElementById('rotateHint');
-        const gameWrapper = document.getElementById('gameWrapper');
-
-        function checkOrientation() {
-            if (window.innerHeight > window.innerWidth) {
-                // 竖屏：显示提示
-                rotateHint.classList.add('show');
-            } else {
-                rotateHint.classList.remove('show');
-            }
-        }
-
-        // 尝试锁定横屏（需用户手势触发）
-        async function lockLandscape() {
-            try {
-                if (screen.orientation && screen.orientation.lock) {
-                    await screen.orientation.lock('landscape');
-                }
-            } catch (e) {
-                // 不支持锁定，忽略
-            }
-            // 检查是否成功
-            setTimeout(checkOrientation, 300);
-        }
-
-        // 页面加载时检查
-        window.addEventListener('load', () => {
-            checkOrientation();
-            // 如果当前是竖屏，尝试锁定（但需要用户手势，这里可能无效）
-            if (window.innerHeight > window.innerWidth) {
-                // 显示提示
-                rotateHint.classList.add('show');
-            }
-        });
-
-        // 窗口变化时检查
-        window.addEventListener('resize', checkOrientation);
-
-        // 在用户点击激活或开始游戏时尝试锁定横屏
-        const originalActivationHandler = document.getElementById('activationBtn').onclick;
-        document.getElementById('activationBtn').addEventListener('click', function() {
-            lockLandscape();
-        });
-
-        const originalStartHandler = document.getElementById('startBtn').onclick;
-        document.getElementById('startBtn').addEventListener('click', function() {
-            lockLandscape();
-        });
-
-        // 也监听触摸事件
-        document.addEventListener('touchstart', function() {
-            if (window.innerHeight > window.innerWidth) {
-                lockLandscape();
-            }
-        }, { once: true });
 
         // ---------- 常量与配置 ----------
         const API_BASE = '';
@@ -839,19 +767,14 @@
                 activationStatus.className = 'status-msg error'; }
         }
 
-        activationBtn.onclick = function() {
-            lockLandscape();
-            submitActivation();
-        };
-        activationInput.onkeydown = e => { if (e.key === 'Enter') { lockLandscape();
-                submitActivation(); } };
+        activationBtn.onclick = submitActivation;
+        activationInput.onkeydown = e => { if (e.key === 'Enter') submitActivation(); };
         checkActivation();
 
         // ---------- 列选择器 ----------
         function initColumnSelectors() {
             const container = $('colSettings');
             container.innerHTML = '';
-            PLANT_TYPES.forEach(p => p.emoji); // preload
             for (let i = 0; i < COLS; i++) {
                 const label = document.createElement('label');
                 label.textContent = `列${i+1}:`;
@@ -1446,6 +1369,7 @@
                 ctx.roundRect(cx - 380, cy - 40, 760, 80, 20);
                 ctx.fill();
                 ctx.shadowBlur = 0;
+                // 口算题颜色（白色）
                 ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 64px sans-serif';
                 ctx.textAlign = 'center';
@@ -1575,7 +1499,6 @@
 
         function startGame() {
             if (!isActivated) { checkActivation(); return; }
-            lockLandscape(); // 尝试锁定横屏
             sound.resume();
             G.age = clamp(parseInt(ageInput.value) || 8, 4, 18);
             G.homeName = nameInput.value.trim().slice(0, 10) || '我的家园';
@@ -1619,10 +1542,7 @@
         }
 
         // ---------- 事件 ----------
-        startBtn.onclick = function() {
-            lockLandscape();
-            startGame();
-        };
+        startBtn.onclick = startGame;
         ageInput.onchange = function() { this.value = clamp(parseInt(this.value) || 8, 4, 18); };
 
         skillBtn.onclick = function(e) {
@@ -1700,10 +1620,8 @@
 
         // ---------- 初始化 ----------
         overlay.classList.add('show');
-        // 第一次检查横屏
-        setTimeout(checkOrientation, 500);
         requestAnimationFrame(loop);
-        console.log('🎮 口算塔防 优化版已加载');
+        console.log('🎮 口算塔防 完整版已加载');
     </script>
 </body>
 </html>
