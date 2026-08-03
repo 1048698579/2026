@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>🌻 口算塔防</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        html, body {
+            width: 100%; height: 100%; overflow: hidden;
+            background: #1a1a2e; display: flex; justify-content: center; align-items: center;
+            font-family: "Segoe UI", "PingFang SC", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+            touch-action: none; position: fixed; top: 0; left: 0;
+        }
+        #rotateHint { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: white; font-size: 24px; justify-content: center; align-items: center; flex-direction: column; z-index: 999; text-align: center; padding: 40px; }
+        #rotateHint .icon { font-size: 80px; animation: rotatePhone 2s infinite; }
+        @keyframes rotatePhone { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+        @media (orientation: portrait) { #rotateHint { display: flex !important; } }
+        @media (orientation: landscape) { #rotateHint { display: none !important; } }
+        #gameWrapper { position: relative; background: #2d4a22; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); overflow: hidden; width: 100vw; height: 100vh; max-width: 100%; max-height: 100%; touch-action: none; }
+        #gameCanvas { display: block; width: 100%; height: 100%; background: #4a7c3f; cursor: pointer; touch-action: none; image-rendering: auto; }
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: white;
+            padding: 10px 20px; text-align: center; backdrop-filter: blur(6px);
+            z-index: 10; gap: 4px; overflow-y: auto;
+        }
+        #overlay.hidden { display: none; }
+        #overlay h1 { font-size: clamp(20px, 4vw, 36px); text-shadow: 0 4px 20px rgba(0,0,0,0.6); font-family: inherit; margin-bottom: 2px; }
+        #overlay p { font-size: clamp(12px, 1.6vw, 18px); opacity: 0.9; max-width: 90%; font-family: inherit; }
+        #overlay input[type="number"],
+        #overlay input[type="text"],
+        #overlay input[type="password"] {
+            padding: 6px 12px;
+            font-size: clamp(14px, 1.6vw, 20px);
+            border: none;
+            border-radius: 30px;
+            text-align: center;
+            background: #f0f0f0;
+            color: #222;
+            outline: 2px solid #f5b041;
+            font-weight: bold;
+            font-family: inherit;
+            transition: outline-color 0.3s, transform 0.1s;
+            height: 36px;
+        }
+        #overlay input:focus { outline: 4px solid #f39c12; }
+        #overlay input.error {
+            outline-color: #e74c3c !important;
+            animation: shake 0.4s ease;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+        #ageInput { width: 70px; }
+        #nameInput { width: 120px; font-size: 14px; }
+        #activationInput { width: 140px; font-size: 14px; letter-spacing: 2px; }
+
+        .btn {
+            padding: 8px 24px;
+            font-size: clamp(14px, 2vw, 22px);
+            border: none;
+            border-radius: 40px;
+            background: linear-gradient(145deg, #f5b041, #e67e22);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #b85e0e;
+            transition: 0.08s linear;
+            touch-action: manipulation;
+            font-family: inherit;
+            opacity: 0.5;
+            pointer-events: none;
+            margin-top: 4px;
+        }
+        .btn.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .btn.active:active { transform: translateY(3px); box-shadow: 0 1px 0 #b85e0e; }
+        .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b85e0e; }
+
+        #statusMsg {
+            position: absolute; top: 8%; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.75); color: #f1c40f; padding: 2px 12px;
+            border-radius: 20px; font-size: clamp(12px, 1.8vw, 20px); font-weight: bold;
+            pointer-events: none; opacity: 0; transition: opacity 0.2s; z-index: 5;
+            border: 2px solid #f1c40f; white-space: nowrap; font-family: inherit;
+        }
+        #statusMsg.show { opacity: 1; }
+        #timeDisplay {
+            position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: #f1c40f; padding: 1px 16px;
+            border-radius: 12px; font-size: clamp(16px, 2.2vw, 28px); font-weight: bold;
+            z-index: 3; border: 2px solid #f1c40f; letter-spacing: 2px; font-family: inherit;
+        }
+        #titleDisplay {
+            position: absolute; top: 44px; right: 12px; z-index: 3;
+            color: #f1c40f; font-size: clamp(12px, 1.6vw, 20px);
+            font-weight: bold; text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+            font-family: inherit; background: rgba(0,0,0,0.4);
+            padding: 1px 12px; border-radius: 16px;
+            border: 1px solid rgba(241,196,15,0.3);
+            letter-spacing: 1px; white-space: nowrap;
+        }
+        #skillBtn {
+            position: absolute; bottom: 10px; left: 10px; z-index: 4;
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+            color: white; border: 2px solid #f1c40f; border-radius: 16px;
+            padding: 4px 14px; font-size: clamp(12px, 1.6vw, 20px); font-weight: bold;
+            cursor: pointer; box-shadow: 0 4px 0 #922b21, 0 0 16px rgba(231,76,60,0.4);
+            transition: 0.08s linear; touch-action: manipulation;
+            display: flex; align-items: center; gap: 6px; white-space: nowrap;
+            font-family: "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+        }
+        #skillBtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #922b21; }
+        #skillBtn .cost { font-size: clamp(8px, 1vw, 14px); opacity: 0.8; font-family: inherit; }
+        #skillBtn .badge { background: rgba(255,255,255,0.2); border-radius: 10px; padding: 0 6px; font-size: clamp(8px, 1vw, 14px); font-family: inherit; }
+        #skillBtn.ready { animation: pulse-glow 1s infinite; border-color: #f1c40f; box-shadow: 0 4px 0 #922b21, 0 0 30px rgba(241,196,15,0.6); }
+        #skillBtn.cooldown { opacity: 0.5; pointer-events: none; }
+        @keyframes pulse-glow { 0%,100% { box-shadow: 0 4px 0 #922b21, 0 0 16px rgba(241,196,15,0.3); } 50% { box-shadow: 0 4px 0 #922b21, 0 0 40px rgba(241,196,15,0.7); } }
+        @media (max-width: 600px) and (orientation: landscape) {
+            #gameWrapper { border-radius: 0; }
+            .btn { padding: 4px 16px; font-size: clamp(12px, 1.8vw, 18px); }
+            #overlay input { font-size: clamp(12px, 1.4vw, 16px); height: 30px; padding: 4px 8px; }
+            #overlay h1 { font-size: clamp(16px, 3vw, 26px); }
+            #overlay p { font-size: clamp(10px, 1.2vw, 14px); }
+            #skillBtn { padding: 2px 10px; font-size: clamp(10px, 1.4vw, 16px); bottom: 6px; left: 6px; border-radius: 12px; }
+            #skillBtn .cost { font-size: clamp(6px, 0.8vw, 10px); }
+            #timeDisplay { font-size: clamp(14px, 2vw, 20px); padding: 1px 10px; }
+            #titleDisplay { font-size: clamp(10px, 1.2vw, 14px); top: 38px; right: 8px; padding: 1px 8px; }
+            #ageInput { width: 60px; }
+            #nameInput { width: 90px; font-size: 12px; }
+            #activationInput { width: 100px; font-size: 12px; }
+        }
+        .col-settings {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 3px 8px;
+            margin: 2px 0;
+            background: rgba(0,0,0,0.2);
+            padding: 4px 8px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.08);
+            width: 100%;
+            max-width: 800px;
+        }
+        .col-settings label {
+            font-size: clamp(11px, 1.2vw, 14px);
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            color: #ddd;
+        }
+        .col-settings select {
+            background: #2c3e50;
+            color: white;
+            border: 1px solid #f1c40f;
+            border-radius: 6px;
+            padding: 1px 3px;
+            font-size: clamp(11px, 1.2vw, 14px);
+            font-family: inherit;
+            cursor: pointer;
+            height: 24px;
+        }
+        .col-settings select:focus { outline: 2px solid #f39c12; }
+        .row-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 4px 12px;
+            margin: 1px 0;
+        }
+        .row-group .item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .row-group .item label {
+            font-size: clamp(12px, 1.4vw, 16px);
+            opacity: 0.9;
+        }
+        /* 激活码覆盖层 */
+        #activatorOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.92);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            z-index: 20;
+            gap: 8px;
+            backdrop-filter: blur(4px);
+        }
+        #activatorOverlay.hidden { display: none; }
+        #activatorOverlay h2 { font-size: clamp(24px, 4vw, 40px); color: #f1c40f; }
+        #activatorOverlay .sub { font-size: clamp(14px, 1.8vw, 22px); opacity: 0.8; }
+        #activatorOverlay input {
+            padding: 10px 20px;
+            font-size: clamp(18px, 2vw, 28px);
+            border: none;
+            border-radius: 60px;
+            width: 200px;
+            text-align: center;
+            background: #f0f0f0;
+            color: #222;
+            outline: 2px solid #f5b041;
+            font-weight: bold;
+            font-family: inherit;
+            letter-spacing: 4px;
+        }
+        #activatorOverlay input:focus { outline: 4px solid #f39c12; }
+        #activatorOverlay .act-btn {
+            padding: 10px 40px;
+            font-size: clamp(16px, 2vw, 24px);
+            border: none;
+            border-radius: 60px;
+            background: linear-gradient(145deg, #f5b041, #e67e22);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #b85e0e;
+            transition: 0.08s linear;
+            touch-action: manipulation;
+            font-family: inherit;
+        }
+        #activatorOverlay .act-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #b85e0e; }
+        #activatorOverlay .status-msg {
+            font-size: clamp(14px, 1.6vw, 20px);
+            min-height: 30px;
+            color: #f1c40f;
+        }
+        #activatorOverlay .status-msg.error { color: #e74c3c; }
+        #activatorOverlay .status-msg.success { color: #2ecc71; }
+    </style>
+</head>
+<body>
+
+    <div id="rotateHint">
+        <div class="icon">📱</div>
+        <p style="margin-top:20px;">请将手机<b>横屏</b>玩游戏</p>
+        <p style="font-size:16px; opacity:0.6; margin-top:10px;">转动手机后自动进入</p>
+    </div>
+
+    <div id="gameWrapper">
+        <canvas id="gameCanvas" width="1600" height="900"></canvas>
+        <div id="titleDisplay">🏫 陈老师原创制作</div>
+        <div id="timeDisplay">⏱️ 10:00</div>
+        <div id="statusMsg">✅ +25 阳光</div>
+
+        <div id="skillBtn" class="cooldown">
+            <span>💥</span>
+            <span>樱桃炸弹</span>
+            <span class="cost">☀️150</span>
+            <span class="badge" id="skillBadge">⏳</span>
+        </div>
+
+        <!-- 激活码覆盖层 -->
+        <div id="activatorOverlay">
+            <h2>🧮 口算塔防</h2>
+            <div class="sub">请输入激活码以开始游戏</div>
+            <div style="margin:8px 0;font-size:clamp(12px,1.4vw,18px);opacity:0.6;">💡 联系作者获取激活码</div>
+            <input type="text" id="activationCodeInput" maxlength="8" placeholder="输入激活码" autocomplete="off">
+            <button class="act-btn" id="activationSubmitBtn">🔓 激活</button>
+            <div class="status-msg" id="activationStatusMsg">等待输入...</div>
+            <div style="font-size:clamp(10px,1vw,14px);opacity:0.3;margin-top:4px;">设备ID: <span id="deviceIdDisplay">--</span></div>
+        </div>
+
+        <!-- 游戏设置界面 -->
+        <div id="overlay">
+            <h1>🧮 口算塔防</h1>
+            <p id="overlaySub">答题赚阳光 · 自由列种植 · 生存10分钟</p>
+
+            <div><span style="background:rgba(0,0,0,0.4);padding:4px 14px;border-radius:30px;font-size:clamp(12px,1.6vw,18px);font-family:inherit;">👶 小朋友几岁？</span></div>
+            <input type="number" id="ageInput" min="4" max="18" value="8" step="1">
+
+            <div><span style="background:rgba(0,0,0,0.4);padding:4px 14px;border-radius:30px;font-size:clamp(12px,1.6vw,18px);font-family:inherit;">🏡 家园名字？</span></div>
+            <input type="text" id="nameInput" maxlength="8" value="小明" placeholder="输入名字">
+
+            <div style="font-size:clamp(12px,1.4vw,18px); opacity:0.9; margin-top:4px;">🌱 设置每列种植的植物（从左到右）</div>
+            <div class="col-settings" id="colSettings"></div>
+
+            <button class="btn active" id="startBtn">🌞 开始游戏</button>
+            <div style="font-size:clamp(10px,1.1vw,13px); opacity:0.5; font-family:inherit;">答对 +25 ☀️ · 答错 -5 ☀️ · 坚持10分钟胜利！</div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        //  激活码验证模块 + 完整游戏核心逻辑
+        // ============================================================
+
+        // ---------- 服务器地址 ----------
+        const SERVER_URL = window.location.origin;
+
+        // ---------- 设备ID ----------
+        function getDeviceId() {
+            let id = localStorage.getItem('td_device_id');
+            if (!id) {
+                id = 'DEV_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+                localStorage.setItem('td_device_id', id);
+            }
+            return id;
+        }
+        const DEVICE_ID = getDeviceId();
+        document.getElementById('deviceIdDisplay').textContent = DEVICE_ID;
+
+        // ---------- 激活码验证 ----------
+        const activatorOverlay = document.getElementById('activatorOverlay');
+        const activationInput = document.getElementById('activationCodeInput');
+        const activationBtn = document.getElementById('activationSubmitBtn');
+        const activationStatus = document.getElementById('activationStatusMsg');
+        const overlay = document.getElementById('overlay');
+
+        let isActivated = false;
+
+        async function checkActivation() {
+            try {
+                const resp = await fetch(SERVER_URL + '/api/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: DEVICE_ID })
+                });
+                const data = await resp.json();
+                if (data.activated === true) {
+                    isActivated = true;
+                    activatorOverlay.classList.add('hidden');
+                    overlay.classList.remove('hidden');
+                    activationStatus.textContent = '✅ 已激活！';
+                    activationStatus.className = 'status-msg success';
+                    return true;
+                } else {
+                    isActivated = false;
+                    activatorOverlay.classList.remove('hidden');
+                    overlay.classList.add('hidden');
+                    return false;
+                }
+            } catch (e) {
+                const cached = localStorage.getItem('td_activated') === 'true';
+                if (cached) {
+                    isActivated = true;
+                    activatorOverlay.classList.add('hidden');
+                    overlay.classList.remove('hidden');
+                    activationStatus.textContent = '✅ 已激活（离线模式）';
+                    activationStatus.className = 'status-msg success';
+                    return true;
+                }
+                activationStatus.textContent = '⚠️ 无法连接服务器，请检查网络';
+                activationStatus.className = 'status-msg error';
+                return false;
+            }
+        }
+
+        async function submitActivation(code) {
+            const upperCode = code.toUpperCase().trim();
+            if (upperCode.length < 4) {
+                activationStatus.textContent = '⚠️ 请输入4-8位激活码';
+                activationStatus.className = 'status-msg error';
+                return;
+            }
+            activationStatus.textContent = '⏳ 验证中...';
+            activationStatus.className = 'status-msg';
+
+            try {
+                const resp = await fetch(SERVER_URL + '/api/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: upperCode, device_id: DEVICE_ID })
+                });
+                const data = await resp.json();
+
+                if (data.success) {
+                    isActivated = true;
+                    localStorage.setItem('td_activated', 'true');
+                    localStorage.setItem('td_activation_code', upperCode);
+                    activationStatus.textContent = '✅ ' + data.message;
+                    activationStatus.className = 'status-msg success';
+                    activatorOverlay.classList.add('hidden');
+                    overlay.classList.remove('hidden');
+                } else {
+                    activationStatus.textContent = '❌ ' + data.message;
+                    activationStatus.className = 'status-msg error';
+                    activationInput.classList.add('error');
+                    setTimeout(() => activationInput.classList.remove('error'), 500);
+                }
+            } catch (e) {
+                activationStatus.textContent = '❌ 网络错误，请重试';
+                activationStatus.className = 'status-msg error';
+            }
+        }
+
+        activationBtn.addEventListener('click', function() {
+            submitActivation(activationInput.value);
+        });
+        activationInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); activationBtn.click(); }
+        });
+
+        // ---------- 页面加载检查 ----------
+        (async function init() {
+            await checkActivation();
+        })();
+
+        // ============================================================
+        //  🔥 完整游戏核心逻辑（开始）
+        // ============================================================
+
+        const EMOJI_FONT = '"Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+        let ZOMBIE_SPEED_FACTOR = 0.9;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusMsg = document.getElementById('statusMsg');
+        const timeDisplay = document.getElementById('timeDisplay');
+        const skillBtn = document.getElementById('skillBtn');
+        const skillBadge = document.getElementById('skillBadge');
+        const startBtn = document.getElementById('startBtn');
+        const ageInput = document.getElementById('ageInput');
+        const nameInput = document.getElementById('nameInput');
+
+        const W = 1600, H = 900;
+        canvas.width = W;
+        canvas.height = H;
+
+        const ROWS = 5, COLS = 7;
+        const cellWidth = 150, cellHeight = 130;
+        const gridOffsetX = 275;
+        const gridOffsetY = 140;
+
+        // ---------- 植物定义 ----------
+        const ALL_PLANT_TYPES = [
+            { id: 'sunflower', name: '向日葵', cost: 50, hp: 100, attack: 0, emoji: '🌻' },
+            { id: 'potato', name: '土豆雷', cost: 75, hp: 50, attack: 100, emoji: '💣' },
+            { id: 'chomper', name: '食人花', cost: 125, hp: 120, attack: 40, emoji: '🌺' },
+            { id: 'icepea', name: '寒冰射手', cost: 150, hp: 100, attack: 15, emoji: '❄️' },
+            { id: 'doublepea', name: '双发射手', cost: 200, hp: 120, attack: 20, emoji: '🔫' },
+            { id: 'peashooter', name: '豌豆射手', cost: 100, hp: 100, attack: 20, emoji: '🟢' },
+            { id: 'wallnut', name: '坚果墙', cost: 50, hp: 400, attack: 0, emoji: '🧱' },
+        ];
+
+        const CHERRY_BOMB = { id: 'cherry', name: '樱桃炸弹', cost: 150, hp: 50, attack: 150, emoji: '🍒' };
+
+        const DEFAULT_COLUMN_PLANT_IDS = [
+            'sunflower', 'potato', 'chomper', 'icepea', 'doublepea', 'peashooter', 'wallnut'
+        ];
+
+        function generateColumnSelectors() {
+            const container = document.getElementById('colSettings');
+            container.innerHTML = '';
+            const plantNames = ALL_PLANT_TYPES.map(p => ({ id: p.id, name: p.name, emoji: p.emoji }));
+            for (let i = 0; i < COLS; i++) {
+                const label = document.createElement('label');
+                label.textContent = `列${i+1}:`;
+                const select = document.createElement('select');
+                select.id = `colSelect_${i}`;
+                plantNames.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.emoji + ' ' + p.name;
+                    if (p.id === DEFAULT_COLUMN_PLANT_IDS[i]) opt.selected = true;
+                    select.appendChild(opt);
+                });
+                label.appendChild(select);
+                container.appendChild(label);
+            }
+        }
+        generateColumnSelectors();
+
+        // ---------- 音效 ----------
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                try { this.ctx = new(window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+            }
+            resume() {
+                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+            }
+            play(type) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    const now = this.ctx.currentTime;
+                    const types = {
+                        correct: () => { osc.frequency.setValueAtTime(880, now);
+                            osc.frequency.exponentialRampToValueAtTime(1320, now + 0.12);
+                            gain.gain.setValueAtTime(0.15, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                            osc.start(now);
+                            osc.stop(now + 0.15); },
+                        wrong: () => { osc.frequency.setValueAtTime(330, now);
+                            osc.frequency.exponentialRampToValueAtTime(220, now + 0.2);
+                            gain.gain.setValueAtTime(0.12, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                            osc.start(now);
+                            osc.stop(now + 0.25); },
+                        plant: () => { osc.frequency.setValueAtTime(600, now);
+                            osc.frequency.exponentialRampToValueAtTime(900, now + 0.08);
+                            gain.gain.setValueAtTime(0.08, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                            osc.start(now);
+                            osc.stop(now + 0.1); },
+                        zombie: () => { osc.type = 'sawtooth';
+                            osc.frequency.setValueAtTime(200, now);
+                            osc.frequency.exponentialRampToValueAtTime(80, now + 0.3);
+                            gain.gain.setValueAtTime(0.06, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                            osc.start(now);
+                            osc.stop(now + 0.35); },
+                        shoot: () => { osc.frequency.setValueAtTime(1200, now);
+                            osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
+                            gain.gain.setValueAtTime(0.04, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+                            osc.start(now);
+                            osc.stop(now + 0.06); },
+                        zombieDie: () => { osc.type = 'square';
+                            osc.frequency.setValueAtTime(300, now);
+                            osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+                            gain.gain.setValueAtTime(0.06, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                            osc.start(now);
+                            osc.stop(now + 0.25); },
+                        houseHit: () => { osc.type = 'sawtooth';
+                            osc.frequency.setValueAtTime(150, now);
+                            osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);
+                            gain.gain.setValueAtTime(0.1, now);
+                            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+                            osc.start(now);
+                            osc.stop(now + 0.45); },
+                        victory: () => { [523, 587, 659, 784, 880, 988, 1175].forEach((f, i) => { const o2 = this.ctx
+                                    .createOscillator();
+                                const g2 = this.ctx.createGain();
+                                o2.connect(g2);
+                                g2.connect(this.ctx.destination);
+                                o2.frequency.setValueAtTime(f, now + i * 0.1);
+                                g2.gain.setValueAtTime(0.06, now + i * 0.1);
+                                g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.1 + 0.15);
+                                o2.start(now + i * 0.1);
+                                o2.stop(now + i * 0.1 + 0.15); }); },
+                        gameover: () => { [440, 349, 294, 220].forEach((f, i) => { const o2 = this.ctx
+                                    .createOscillator();
+                                const g2 = this.ctx.createGain();
+                                o2.connect(g2);
+                                g2.connect(this.ctx.destination);
+                                o2.type = 'sawtooth';
+                                o2.frequency.setValueAtTime(f, now + i * 0.15);
+                                g2.gain.setValueAtTime(0.05, now + i * 0.15);
+                                g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.2);
+                                o2.start(now + i * 0.15);
+                                o2.stop(now + i * 0.15 + 0.2); }); },
+                        bomb: () => { [80, 120, 180, 240, 300].forEach((f, i) => { const o2 = this.ctx
+                                    .createOscillator();
+                                const g2 = this.ctx.createGain();
+                                o2.connect(g2);
+                                g2.connect(this.ctx.destination);
+                                o2.type = 'sawtooth';
+                                o2.frequency.setValueAtTime(f, now + i * 0.06);
+                                g2.gain.setValueAtTime(0.12, now + i * 0.06);
+                                g2.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.15);
+                                o2.start(now + i * 0.06);
+                                o2.stop(now + i * 0.06 + 0.15); }); }
+                    };
+                    if (types[type]) types[type]();
+                } catch (e) {}
+            }
+        }
+        const sound = new SoundFX();
+
+        function getPlantById(id) { return ALL_PLANT_TYPES.find(p => p.id === id) || null; }
+
+        const ZOMBIE_TYPES = [
+            { id: 'normal', name: '普通', hp: 100, speed: 0.35, attack: 8 },
+            { id: 'cone', name: '路障', hp: 200, speed: 0.3, attack: 10 },
+            { id: 'bucket', name: '铁桶', hp: 350, speed: 0.25, attack: 12 },
+            { id: 'pole', name: '撑杆', hp: 100, speed: 0.6, attack: 12 },
+            { id: 'newspaper', name: '读报', hp: 150, speed: 0.45, attack: 15 },
+            { id: 'giant', name: '巨人', hp: 500, speed: 0.18, attack: 25 },
+        ];
+
+        // ---------- 游戏状态 ----------
+        let game = {
+            running: false,
+            age: 8,
+            homeName: '我的家园',
+            sun: 50,
+            score: 0,
+            totalTime: 600,
+            remainingTime: 600,
+            plants: [],
+            zombies: [],
+            projectiles: [],
+            particles: [],
+            zombieSpawnTimer: 0,
+            spawnInterval: 2.5,
+            houseHP: 10,
+            maxHouseHP: 10,
+            question: null,
+            questionTimer: 0,
+            questionCooldown: 0,
+            totalCorrect: 0,
+            totalWrong: 0,
+            sunTimer: 0,
+            frameCount: 0,
+            gameOver: false,
+            victory: false,
+            bombReady: true,
+            bombCooldown: 0,
+            bombPlacing: false,
+            rowPlantCount: new Array(ROWS).fill(0),
+            colPlantCount: new Array(COLS).fill(0),
+            columnMap: [],
+        };
+
+        function getZombieById(id) { return ZOMBIE_TYPES.find(z => z.id === id); }
+        function randomInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+        function randomFloat(a, b) { return Math.random() * (b - a) + a; }
+
+        function updateRowCounts() {
+            game.rowPlantCount = new Array(ROWS).fill(0);
+            game.colPlantCount = new Array(COLS).fill(0);
+            for (let p of game.plants) {
+                if (p.hp > 0) {
+                    game.rowPlantCount[p.row]++;
+                    game.colPlantCount[p.col]++;
+                }
+            }
+        }
+
+        // ---------- 口算 ----------
+        function generateQuestion(age) {
+            let a, b, op, answer;
+            let maxNum = age <= 6 ? 10 : age <= 8 ? 20 : age <= 10 ? 50 : age <= 12 ? 100 : 200;
+            const ops = ['+', '-'];
+            if (age >= 9) ops.push('×');
+            if (age >= 11) ops.push('÷');
+            op = ops[randomInt(0, ops.length - 1)];
+            if (op === '+') { a = randomInt(1, maxNum);
+                b = randomInt(1, maxNum);
+                answer = a + b; } else if (op === '-') { a = randomInt(1, maxNum);
+                b = randomInt(1, maxNum); if (a < b)[a, b] = [b, a];
+                answer = a - b; } else if (op === '×') { a = randomInt(1, Math.min(9, maxNum / 2));
+                b = randomInt(1, Math.min(9, maxNum / 2));
+                answer = a * b; } else if (op === '÷') { b = randomInt(1, Math.min(9, maxNum / 2));
+                let q = randomInt(1, Math.min(9, maxNum / 2));
+                a = b * q;
+                answer = q; }
+            let options = [answer];
+            let attempts = 0;
+            while (options.length < 3 && attempts < 50) {
+                attempts++;
+                let offset = randomInt(1, Math.max(3, Math.floor(answer * 0.3) + 1));
+                if (Math.random() > 0.5) offset = -offset;
+                let c = answer + offset;
+                if (c >= 0 && !options.includes(c)) options.push(c);
+            }
+            while (options.length < 3) {
+                let c = answer + options.length;
+                if (c >= 0 && !options.includes(c)) options.push(c);
+            }
+            for (let i = options.length - 1; i > 0; i--) { let j = randomInt(0, i);
+                [options[i], options[j]] = [options[j], options[i]]; }
+            return { text: `${a} ${op} ${b} = ?`, answer, options };
+        }
+
+        // ---------- 种植函数 ----------
+        function getCellCenter(row, col) {
+            return { x: gridOffsetX + col * cellWidth + cellWidth / 2, y: gridOffsetY + row * cellHeight + cellHeight / 2 };
+        }
+
+        function getPlantForColumn(col) {
+            if (col < 0 || col >= COLS) return null;
+            return game.columnMap[col] || null;
+        }
+
+        function findBestPosition(plantType) {
+            let emptyCells = [];
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (!game.plants.some(p => p.row === r && p.col === c && p.hp > 0)) {
+                        emptyCells.push({ row: r, col: c });
+                    }
+                }
+            }
+            if (emptyCells.length === 0) return null;
+
+            let rowThreat = new Array(ROWS).fill(0);
+            for (let z of game.zombies) {
+                if (z.hp > 0 && z.row >= 0 && z.row < ROWS) {
+                    let dist = z.x - gridOffsetX;
+                    if (dist > 0 && dist < 800) {
+                        rowThreat[z.row] += 20 / (dist + 1);
+                    }
+                }
+            }
+
+            let sortedRows = Array.from({ length: ROWS }, (_, i) => i)
+                .sort((a, b) => rowThreat[b] - rowThreat[a]);
+
+            for (let r of sortedRows) {
+                if (rowThreat[r] === 0 && rowThreat.some(t => t > 0)) continue;
+                let candidates = emptyCells.filter(c => c.row === r);
+                if (candidates.length === 0) continue;
+                candidates.sort((a, b) => a.col - b.col);
+                for (let cell of candidates) {
+                    let allowedPlant = getPlantForColumn(cell.col);
+                    if (allowedPlant === plantType) {
+                        return cell;
+                    }
+                }
+            }
+
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (emptyCells.some(cell => cell.row === r && cell.col === c)) {
+                        if (getPlantForColumn(c) === plantType) {
+                            return { row: r, col: c };
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        function autoPlant() {
+            if (game.plants.filter(p => p.hp > 0).length >= ROWS * COLS) return;
+
+            let candidates = [];
+            for (let c = 0; c < COLS; c++) {
+                let plantId = getPlantForColumn(c);
+                if (!plantId) continue;
+                let def = getPlantById(plantId);
+                if (!def) continue;
+                if (game.sun < def.cost) continue;
+                if (game.colPlantCount[c] >= ROWS) continue;
+                candidates.push({ col: c, plantId: plantId });
+            }
+
+            if (candidates.length === 0) return;
+
+            let colThreat = new Array(COLS).fill(0);
+            for (let z of game.zombies) {
+                if (z.hp > 0) {
+                    let zCol = Math.floor((z.x - gridOffsetX) / cellWidth);
+                    if (zCol >= 0 && zCol < COLS) {
+                        let dist = z.x - gridOffsetX;
+                        if (dist > 0 && dist < 600) {
+                            colThreat[zCol] += 10 / (dist + 1);
+                        }
+                    }
+                }
+            }
+            candidates.sort((a, b) => colThreat[b.col] - colThreat[a.col]);
+
+            for (let cand of candidates) {
+                let pos = findBestPosition(cand.plantId);
+                if (pos) {
+                    let def = getPlantById(cand.plantId);
+                    if (!def) continue;
+                    if (game.sun < def.cost) continue;
+
+                    game.sun -= def.cost;
+                    let p = getCellCenter(pos.row, pos.col);
+                    let newPlant = {
+                        type: cand.plantId,
+                        row: pos.row,
+                        col: pos.col,
+                        x: p.x,
+                        y: p.y,
+                        hp: def.hp,
+                        maxHp: def.hp,
+                        attack: def.attack,
+                        timer: 0,
+                        attackTimer: 0,
+                        cooldown: 1.2,
+                        state: 'idle'
+                    };
+                    game.plants.push(newPlant);
+                    if (cand.plantId === 'sunflower') newPlant.timer = 0;
+                    if (cand.plantId === 'potato') newPlant.cooldown = 0.5;
+                    sound.play('plant');
+                    updateRowCounts();
+                    let colName = pos.col + 1;
+                    showStatus(`🌱 种 ${def.emoji} 第${colName}列 第${pos.row+1}行`, '#2ecc71');
+                    return;
+                }
+            }
+        }
+
+        // ---------- 樱桃炸弹 ----------
+        function placeCherryBomb(row, col) {
+            let cost = CHERRY_BOMB.cost;
+            if (game.sun < cost) {
+                showStatus('❌ 阳光不足！需要 ' + cost, '#e74c3c');
+                return false;
+            }
+            let occupied = game.plants.some(p => p.row === row && p.col === col && p.hp > 0);
+            if (occupied) {
+                showStatus('❌ 该位置已被植物占用', '#e74c3c');
+                return false;
+            }
+            game.sun -= cost;
+            let pos = getCellCenter(row, col);
+
+            let explodeRange = 1;
+            let damage = 150;
+            let killed = 0;
+
+            for (let k = 0; k < 40; k++) {
+                game.particles.push({
+                    x: pos.x + randomFloat(-40, 40),
+                    y: pos.y + randomFloat(-40, 40),
+                    color: ['#e74c3c', '#f39c12', '#f1c40f', '#ff6b6b'][randomInt(0, 3)],
+                    life: 30 + randomInt(0, 25),
+                    vx: randomFloat(-10, 10),
+                    vy: randomFloat(-10, 10),
+                    size: randomFloat(6, 18)
+                });
+            }
+
+            for (let z of game.zombies) {
+                let zCol = Math.floor((z.x - gridOffsetX) / cellWidth);
+                if (z.row >= row - explodeRange && z.row <= row + explodeRange &&
+                    zCol >= col - explodeRange && zCol <= col + explodeRange) {
+                    z.hp -= damage;
+                    if (z.hp <= 0) {
+                        killed++;
+                        sound.play('zombieDie');
+                        for (let k = 0; k < 12; k++) {
+                            game.particles.push({
+                                x: z.x + randomFloat(-20, 20),
+                                y: z.y + randomFloat(-20, 20),
+                                color: '#2ecc71',
+                                life: 20 + randomInt(0, 15),
+                                vx: randomFloat(-5, 5),
+                                vy: randomFloat(-5, 5),
+                                size: randomFloat(4, 10)
+                            });
+                        }
+                    }
+                }
+            }
+            game.zombies = game.zombies.filter(z => z.hp > 0);
+
+            sound.play('bomb');
+            showStatus(`💥 樱桃炸弹爆炸！消灭 ${killed} 只僵尸`, '#e74c3c');
+            return true;
+        }
+
+        // ---------- 僵尸生成 ----------
+        function spawnZombie(zombieId, row) {
+            let def = getZombieById(zombieId);
+            if (!def) return;
+            let elapsed = game.totalTime - game.remainingTime;
+            let hpMul = 1 + elapsed / 600 * 0.8;
+            let speedMul = 1 + elapsed / 600 * 0.3;
+            let hp = Math.round(def.hp * hpMul);
+            let speed = def.speed * speedMul * (0.9 + Math.random() * 0.2) * ZOMBIE_SPEED_FACTOR;
+            let x = W - 40 - Math.random() * 60;
+            let z = {
+                type: zombieId,
+                row,
+                x,
+                y: gridOffsetY + row * cellHeight + cellHeight / 2,
+                hp: hp,
+                maxHp: hp,
+                speed: speed,
+                attack: def.attack,
+                attackCooldown: 0,
+                state: 'walking',
+                stateTimer: 0,
+                name: def.name,
+                emoji: '🧟'
+            };
+            if (zombieId === 'pole') { z.state = 'jumping';
+                z.stateTimer = 0.5;
+                z.speed = speed * 1.8; }
+            if (zombieId === 'newspaper') { z.state = 'raging';
+                z.speed = speed * 1.2; }
+            game.zombies.push(z);
+            sound.play('zombie');
+        }
+
+        function spawnRandomZombie() {
+            let elapsed = game.totalTime - game.remainingTime;
+            let available = ['normal'];
+            if (elapsed > 30) available.push('cone');
+            if (elapsed > 60) available.push('bucket');
+            if (elapsed > 100) available.push('pole');
+            if (elapsed > 140) available.push('newspaper');
+            if (elapsed > 200) available.push('giant');
+            let weights = [1, 1, 1, 1, 1, 1];
+            if (elapsed > 120) weights = [1, 1, 1, 2, 2, 1];
+            if (elapsed > 240) weights = [1, 1, 2, 2, 3, 2];
+            if (elapsed > 360) weights = [1, 2, 2, 3, 3, 3];
+            let pool = [];
+            available.forEach((id, idx) => {
+                for (let i = 0; i < weights[idx]; i++) pool.push(id);
+            });
+            let pick = pool[randomInt(0, pool.length - 1)] || 'normal';
+            let row = randomInt(0, ROWS - 1);
+            spawnZombie(pick, row);
+        }
+
+        // ---------- 攻击 ----------
+        function plantAttack(plant, zombie) {
+            if (plant.attack <= 0) return;
+            let dx = zombie.x - plant.x,
+                dy = zombie.y - plant.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 300) {
+                let angle = Math.atan2(dy, dx),
+                    speed = 4;
+                game.projectiles.push({
+                    x: plant.x,
+                    y: plant.y - 10,
+                    row: plant.row,
+                    damage: plant.attack,
+                    speed,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    type: plant.type === 'icepea' ? 'ice' : 'normal',
+                    life: 120
+                });
+                sound.play('shoot');
+            }
+        }
+
+        function updateProjectiles() {
+            for (let i = game.projectiles.length - 1; i >= 0; i--) {
+                let p = game.projectiles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                if (p.x > W || p.x < 0 || p.y < 0 || p.y > H || p.life <= 0) { game.projectiles.splice(i, 1); continue; }
+                let hit = false;
+                for (let z of game.zombies) {
+                    if (z.row === p.row && Math.abs(z.x - p.x) < 35 && Math.abs(z.y - p.y) < 35 && z.hp > 0) {
+                        z.hp -= p.damage;
+                        if (p.type === 'ice') z.speed = Math.max(0.2, z.speed * 0.7);
+                        for (let k = 0; k < 6; k++) {
+                            game.particles.push({ x: p.x, y: p.y, color: '#f1c40f', life: 20 + randomInt(0, 20),
+                                vx: randomFloat(-3, 3), vy: randomFloat(-3, 3), size: randomFloat(3, 8) });
+                        }
+                        if (z.hp <= 0) sound.play('zombieDie');
+                        hit = true;
+                        break;
+                    }
+                }
+                if (hit) game.projectiles.splice(i, 1);
+            }
+        }
+
+        // ---------- 更新 ----------
+        function update(delta) {
+            if (!game.running || game.gameOver) return;
+
+            game.frameCount++;
+            let elapsed = game.totalTime - game.remainingTime;
+
+            game.remainingTime -= delta;
+            if (game.remainingTime <= 0) {
+                game.remainingTime = 0;
+                game.victory = true;
+                game.gameOver = true;
+                game.running = false;
+                showStatus('🎉 恭喜你坚持了10分钟！', '#f1c40f');
+                sound.play('victory');
+                updateTimeDisplay();
+                setTimeout(() => endGame(true), 2000);
+                return;
+            }
+            updateTimeDisplay();
+
+            game.sunTimer += delta;
+            if (game.sunTimer > 3.0) {
+                game.sunTimer = 0;
+                game.sun += 2;
+            }
+
+            for (let p of game.plants) {
+                if (p.type === 'sunflower' && p.hp > 0) {
+                    p.timer += delta;
+                    if (p.timer > 6.0) {
+                        p.timer = 0;
+                        game.sun += 7;
+                        showStatus('🌻 +7 阳光', '#f1c40f');
+                        sound.play('plant');
+                    }
+                }
+            }
+
+            if (game.questionCooldown > 0) {
+                game.questionCooldown -= delta;
+            } else if (!game.question) {
+                game.question = generateQuestion(game.age);
+                game.questionTimer = 8.0;
+            } else {
+                game.questionTimer -= delta;
+                if (game.questionTimer <= 0) {
+                    game.sun = Math.max(0, game.sun - 5);
+                    game.totalWrong++;
+                    game.question = null;
+                    game.questionCooldown = 0.5;
+                    showStatus('⏰ 超时 -5', '#e74c3c');
+                    sound.play('wrong');
+                }
+            }
+
+            if (game.frameCount % 24 === 0) {
+                autoPlant();
+            }
+
+            for (let p of game.plants) {
+                if (p.hp <= 0 || p.attack <= 0) continue;
+                let target = null,
+                    minDist = 500;
+                for (let z of game.zombies) {
+                    if (z.row !== p.row || z.hp <= 0) continue;
+                    let dx = z.x - p.x;
+                    if (dx > 0 && dx < minDist) { minDist = dx;
+                        target = z; }
+                }
+                if (target) {
+                    p.attackTimer += delta;
+                    if (p.attackTimer >= p.cooldown) {
+                        p.attackTimer = 0;
+                        plantAttack(p, target);
+                    }
+                }
+            }
+
+            const houseX = 60;
+            const doorWidth = 18;
+            const doorX = houseX + 12;
+            const doorRight = doorX + doorWidth;
+
+            for (let z of game.zombies) {
+                if (z.hp <= 0) continue;
+                if (z.state === 'jumping') {
+                    z.stateTimer -= delta;
+                    z.x -= z.speed * delta * 60;
+                    if (z.stateTimer <= 0) {
+                        z.state = 'walking';
+                        z.speed = z.speed * 0.6;
+                    }
+                    continue;
+                }
+                if (z.state === 'raging') {
+                    if (z.hp < z.maxHp * 0.3) z.speed = z.speed * 1.3;
+                }
+                let eating = false;
+                for (let p of game.plants) {
+                    if (p.row !== z.row || p.hp <= 0) continue;
+                    if (Math.abs(z.x - p.x) < 50 && Math.abs(z.y - p.y) < 40) {
+                        eating = true;
+                        z.attackCooldown -= delta;
+                        if (z.attackCooldown <= 0) {
+                            p.hp -= z.attack * 0.3;
+                            z.attackCooldown = 0.8;
+                            if (p.hp <= 0) {
+                                p.hp = 0;
+                                showStatus(`💀 ${p.type}被吃`, '#e74c3c');
+                            }
+                        }
+                        break;
+                    }
+                }
+                if (!eating) {
+                    z.x -= z.speed * delta * 60;
+                    z.attackCooldown = 0;
+                }
+                if (z.x < doorRight) {
+                    game.houseHP -= 1;
+                    z.hp = 0;
+                    sound.play('houseHit');
+                    showStatus(`💔 房子受损 (${game.houseHP})`, '#e74c3c');
+                    if (game.houseHP <= 0) {
+                        game.gameOver = true;
+                        game.running = false;
+                        sound.play('gameover');
+                        showStatus('💀 游戏结束！', '#e74c3c');
+                        setTimeout(() => endGame(false), 2000);
+                        return;
+                    }
+                }
+            }
+
+            updateProjectiles();
+
+            let minInterval = 0.4;
+            let maxInterval = 2.5;
+            let progress = Math.min(elapsed / 600, 1);
+            let currentInterval = maxInterval - (maxInterval - minInterval) * progress;
+            game.spawnInterval = currentInterval;
+
+            game.zombieSpawnTimer += delta;
+            if (game.zombieSpawnTimer >= game.spawnInterval) {
+                game.zombieSpawnTimer = 0;
+                spawnRandomZombie();
+                if (elapsed > 300 && Math.random() < 0.2) spawnRandomZombie();
+                if (elapsed > 450 && Math.random() < 0.3) spawnRandomZombie();
+            }
+
+            game.plants = game.plants.filter(p => p.hp > 0);
+            game.zombies = game.zombies.filter(z => z.hp > 0);
+            updateRowCounts();
+
+            for (let i = game.particles.length - 1; i >= 0; i--) {
+                let p = game.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life--;
+                p.vx *= 0.95;
+                p.vy *= 0.95;
+                if (p.life <= 0) game.particles.splice(i, 1);
+            }
+
+            if (!game.bombReady) {
+                game.bombCooldown -= delta;
+                if (game.bombCooldown <= 0) {
+                    game.bombReady = true;
+                    skillBtn.classList.remove('cooldown');
+                    skillBtn.classList.add('ready');
+                    skillBadge.textContent = '点击格子放置';
+                } else {
+                    skillBtn.classList.add('cooldown');
+                    skillBadge.textContent = Math.ceil(game.bombCooldown) + 's';
+                }
+            } else {
+                skillBtn.classList.remove('cooldown');
+                skillBtn.classList.add('ready');
+                if (!game.bombPlacing) {
+                    skillBadge.textContent = '点击格子放置';
+                } else {
+                    skillBadge.textContent = '👆 点击草坪';
+                }
+            }
+            if (game.sun < CHERRY_BOMB.cost) {
+                skillBtn.style.opacity = '0.5';
+            } else {
+                skillBtn.style.opacity = '1';
+            }
+        }
+
+        function updateTimeDisplay() {
+            let mins = Math.floor(game.remainingTime / 60);
+            let secs = Math.floor(game.remainingTime % 60);
+            timeDisplay.textContent = `⏱️ ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            if (game.remainingTime < 60) {
+                timeDisplay.style.borderColor = '#e74c3c';
+                timeDisplay.style.color = '#e74c3c';
+            } else {
+                timeDisplay.style.borderColor = '#f1c40f';
+                timeDisplay.style.color = '#f1c40f';
+            }
+        }
+
+        // ---------- 绘制 ----------
+        function draw() {
+            ctx.clearRect(0, 0, W, H);
+            let grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#4a7c3f');
+            grad.addColorStop(1, '#2d4a22');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            for (let r = 0; r < ROWS; r++)
+                for (let c = 0; c < COLS; c++) {
+                    let x = gridOffsetX + c * cellWidth,
+                        y = gridOffsetY + r * cellHeight;
+                    ctx.fillStyle = (r + c) % 2 === 0 ? '#5a8f4c' : '#4a7c3f';
+                    ctx.fillRect(x, y, cellWidth, cellHeight);
+                    ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, cellWidth, cellHeight);
+                    if (game.bombPlacing && game.running) {
+                        ctx.fillStyle = 'rgba(255,0,0,0.15)';
+                        ctx.fillRect(x, y, cellWidth, cellHeight);
+                    }
+                }
+
+            const houseSize = 72;
+            const houseX = 60;
+            const doorWidth = 18;
+            const doorHeight = 22;
+            const windowSize = 12;
+
+            if (game.homeName && game.homeName.length > 0) {
+                const chars = game.homeName.split('');
+                const displayChars = chars.slice(0, 6);
+                const charSize = 40;
+                const spacing = 8;
+                const startX = houseX - 20;
+                const startY = gridOffsetY + 20;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.fillStyle = '#f1c40f';
+                ctx.font = `bold ${charSize}px sans-serif`;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = 'rgba(0,0,0,0.9)';
+                for (let i = 0; i < displayChars.length; i++) {
+                    const y = startY + i * (charSize + spacing);
+                    ctx.fillText(displayChars[i], startX, y);
+                }
+                ctx.restore();
+            }
+
+            for (let r = 0; r < ROWS; r++) {
+                let houseY = gridOffsetY + r * cellHeight + (cellHeight - houseSize) / 2;
+
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(houseX, houseY, houseSize, houseSize);
+
+                ctx.fillStyle = '#A0522D';
+                ctx.beginPath();
+                ctx.moveTo(houseX - 4, houseY);
+                ctx.lineTo(houseX + houseSize/2, houseY - 14);
+                ctx.lineTo(houseX + houseSize + 4, houseY);
+                ctx.closePath();
+                ctx.fill();
+
+                const doorX = houseX + 12;
+                const doorY = houseY + houseSize - doorHeight;
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(doorX, doorY, doorWidth, doorHeight);
+                ctx.fillStyle = '#f1c40f';
+                ctx.beginPath();
+                ctx.arc(doorX + doorWidth - 4, doorY + doorHeight/2, 3, 0, 2 * Math.PI);
+                ctx.fill();
+
+                const winX1 = houseX + 6;
+                const winY1 = houseY + 10;
+                const winX2 = houseX + houseSize - 6 - windowSize;
+                const winY2 = houseY + 10;
+                ctx.fillStyle = '#5dade2';
+                ctx.fillRect(winX1, winY1, windowSize, windowSize);
+                ctx.fillRect(winX2, winY2, windowSize, windowSize);
+                ctx.strokeStyle = '#2c3e50';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(winX1, winY1, windowSize, windowSize);
+                ctx.strokeRect(winX2, winY2, windowSize, windowSize);
+                ctx.beginPath();
+                ctx.moveTo(winX1 + windowSize/2, winY1);
+                ctx.lineTo(winX1 + windowSize/2, winY1 + windowSize);
+                ctx.moveTo(winX1, winY1 + windowSize/2);
+                ctx.lineTo(winX1 + windowSize, winY1 + windowSize/2);
+                ctx.moveTo(winX2 + windowSize/2, winY2);
+                ctx.lineTo(winX2 + windowSize/2, winY2 + windowSize);
+                ctx.moveTo(winX2, winY2 + windowSize/2);
+                ctx.lineTo(winX2 + windowSize, winY2 + windowSize/2);
+                ctx.stroke();
+
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = 'white';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('❤️' + game.houseHP, houseX + houseSize/2, houseY - 4);
+            }
+            ctx.shadowBlur = 0;
+
+            for (let p of game.plants) {
+                if (p.hp <= 0) continue;
+                let def = getPlantById(p.type);
+                ctx.font = '52px ' + EMOJI_FONT;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = 'rgba(0,0,0,0.4)';
+                ctx.fillStyle = 'white';
+                ctx.fillText(def ? def.emoji : '🌱', p.x, p.y - 8);
+                ctx.shadowBlur = 0;
+                let hp = p.hp / p.maxHp;
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.fillRect(p.x - 30, p.y - 42, 60, 8);
+                ctx.fillStyle = hp > 0.5 ? '#2ecc71' : (hp > 0.25 ? '#f1c40f' : '#e74c3c');
+                ctx.fillRect(p.x - 30, p.y - 42, 60 * hp, 8);
+            }
+
+            for (let z of game.zombies) {
+                if (z.hp <= 0) continue;
+                ctx.font = '56px ' + EMOJI_FONT;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.fillStyle = 'white';
+                ctx.fillText('🧟', z.x, z.y - 6);
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = '#ff6b6b';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText(z.name, z.x, z.y + 40);
+                let hp = z.hp / z.maxHp;
+                ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                ctx.fillRect(z.x - 35, z.y - 50, 70, 10);
+                ctx.fillStyle = hp > 0.5 ? '#2ecc71' : (hp > 0.25 ? '#f1c40f' : '#e74c3c');
+                ctx.fillRect(z.x - 35, z.y - 50, 70 * hp, 10);
+                ctx.fillStyle = 'white';
+                ctx.font = '12px sans-serif';
+                ctx.fillText(`${Math.ceil(z.hp)}/${z.maxHp}`, z.x, z.y - 58);
+            }
+
+            for (let p of game.projectiles) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = p.type === 'ice' ? '#5dade2' : '#27ae60';
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = p.type === 'ice' ? '#5dade2' : '#27ae60';
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            for (let p of game.particles) {
+                ctx.globalAlpha = p.life / 40;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = p.color || '#f1c40f';
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, W, 60);
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 26px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`☀️ ${Math.floor(game.sun)}`, 20, 32);
+            ctx.fillText(`❤️ ${game.houseHP}`, 160, 32);
+            ctx.fillText(`✅ ${game.totalCorrect}`, 430, 32);
+            ctx.fillText(`❌ ${game.totalWrong}`, 530, 32);
+            ctx.textAlign = 'right';
+            ctx.fillText(`👶 ${game.age}岁`, W - 20, 32);
+
+            if (game.question && game.running) {
+                let q = game.question;
+                let centerX = W / 2;
+                let centerY = H / 2 - 20;
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 30;
+                ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                ctx.beginPath();
+                ctx.roundRect(centerX - 340, centerY - 35, 680, 70, 20);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 60px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(q.text, centerX, centerY);
+
+                let gridBottom = gridOffsetY + ROWS * cellHeight;
+                let optY = gridBottom + 25;
+                let optCenterX = 875;
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.beginPath();
+                ctx.roundRect(optCenterX - 300, optY - 30, 600, 70, 20);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                let optWidth = 160;
+                let gap = 30;
+                let totalWidth = q.options.length * optWidth + (q.options.length - 1) * gap;
+                let startX = optCenterX - totalWidth / 2;
+                q._buttons = [];
+                for (let i = 0; i < q.options.length; i++) {
+                    let ox = startX + i * (optWidth + gap);
+                    ctx.fillStyle = 'rgba(44, 62, 80, 0.85)';
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    ctx.beginPath();
+                    ctx.roundRect(ox, optY - 20, optWidth, 50, 14);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 34px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(q.options[i], ox + optWidth / 2, optY + 5);
+                    q._buttons.push({ x: ox, y: optY - 20, w: optWidth, h: 50, value: q.options[i] });
+                }
+
+                let tp = game.questionTimer / 8.0;
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(optCenterX - 150, optY + 45, 300, 6);
+                ctx.fillStyle = tp > 0.3 ? '#2ecc71' : '#e74c3c';
+                ctx.fillRect(optCenterX - 150, optY + 45, 300 * Math.max(0, tp), 6);
+            }
+
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(W - 250, H - 40, 230, 28);
+            ctx.fillStyle = '#f1c40f';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            let colHints = [];
+            for (let c = 0; c < COLS; c++) {
+                let pid = game.columnMap[c] || '';
+                let def = getPlantById(pid);
+                colHints.push(def ? def.emoji : '?');
+            }
+            ctx.fillText(`📋 ${colHints.join(' ')}`, W - 20, H - 24);
+        }
+
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                if (r > w/2) r = w/2;
+                if (r > h/2) r = h/2;
+                this.moveTo(x + r, y);
+                this.lineTo(x + w - r, y);
+                this.quadraticCurveTo(x + w, y, x + w, y + r);
+                this.lineTo(x + w, y + h - r);
+                this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                this.lineTo(x + r, y + h);
+                this.quadraticCurveTo(x, y + h, x, y + h - r);
+                this.lineTo(x, y + r);
+                this.quadraticCurveTo(x, y, x + r, y);
+                return this;
+            };
+        }
+
+        let statusTimeout = null;
+
+        function showStatus(msg, color = '#f1c40f') {
+            statusMsg.textContent = msg;
+            statusMsg.style.color = color;
+            statusMsg.style.borderColor = color;
+            statusMsg.classList.add('show');
+            clearTimeout(statusTimeout);
+            statusTimeout = setTimeout(() => statusMsg.classList.remove('show'), 1500);
+        }
+
+        function endGame(victory) {
+            game.running = false;
+            overlay.classList.remove('hidden');
+            let title = victory ? '🎉 胜利！' : '💀 失败...';
+            let sub = victory ? '你成功生存了10分钟！' : '房子被僵尸攻破了...';
+            let stats = `答对 ${game.totalCorrect} 题 · 答错 ${game.totalWrong} 题 · 得分 ${game.score}`;
+            document.querySelector('#overlay h1').textContent = title;
+            document.querySelector('#overlaySub').textContent = sub + '  ' + stats;
+            startBtn.textContent = '🔄 再来一局';
+            startBtn.className = 'btn active';
+            game.bombPlacing = false;
+            skillBtn.classList.remove('ready');
+            skillBtn.classList.add('cooldown');
+            skillBadge.textContent = '⏳';
+        }
+
+        let lastTime = 0;
+
+        function gameLoop(timestamp) {
+            let delta = (timestamp - lastTime) / 1000;
+            if (delta > 0.1) delta = 0.05;
+            lastTime = timestamp;
+            if (game.running) update(delta);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ---------- 启动游戏 ----------
+        function startGame() {
+            if (!isActivated) {
+                checkActivation();
+                return;
+            }
+
+            sound.resume();
+            let age = parseInt(ageInput.value) || 8;
+            if (age < 4) age = 4;
+            if (age > 18) age = 18;
+
+            let homeName = nameInput.value.trim() || '我的家园';
+            game.homeName = homeName;
+
+            let map = [];
+            for (let i = 0; i < COLS; i++) {
+                const select = document.getElementById(`colSelect_${i}`);
+                if (select) {
+                    map.push(select.value);
+                } else {
+                    map.push(DEFAULT_COLUMN_PLANT_IDS[i] || 'sunflower');
+                }
+            }
+            game.columnMap = map;
+
+            game.age = age;
+            game.sun = 50;
+            game.score = 0;
+            game.remainingTime = game.totalTime;
+            game.houseHP = game.maxHouseHP = 10;
+            game.plants = [];
+            game.zombies = [];
+            game.projectiles = [];
+            game.particles = [];
+            game.question = null;
+            game.questionCooldown = 0;
+            game.totalCorrect = 0;
+            game.totalWrong = 0;
+            game.gameOver = false;
+            game.victory = false;
+            game.running = true;
+            game.frameCount = 0;
+            game.bombReady = true;
+            game.bombCooldown = 0;
+            game.bombPlacing = false;
+            game.sunTimer = 0;
+            game.zombieSpawnTimer = 0;
+            game.spawnInterval = 2.5;
+            game.rowPlantCount = new Array(ROWS).fill(0);
+            game.colPlantCount = new Array(COLS).fill(0);
+
+            skillBtn.classList.remove('cooldown');
+            skillBtn.classList.add('ready');
+            skillBadge.textContent = '点击格子放置';
+            timeDisplay.style.borderColor = '#f1c40f';
+            timeDisplay.style.color = '#f1c40f';
+            updateTimeDisplay();
+
+            overlay.classList.add('hidden');
+            showStatus('🌞 生存10分钟开始！', '#2ecc71');
+        }
+
+        // ---------- 事件绑定 ----------
+        startBtn.addEventListener('click', startGame);
+
+        ageInput.addEventListener('change', function() {
+            let v = parseInt(this.value) || 8;
+            if (v < 4) this.value = 4;
+            if (v > 18) this.value = 18;
+        });
+
+        skillBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (!game.running || game.gameOver) return;
+            if (!game.bombReady) {
+                showStatus('⏳ 技能冷却中...', '#e74c3c');
+                return;
+            }
+            if (game.sun < CHERRY_BOMB.cost) {
+                showStatus('❌ 阳光不足！需要 150', '#e74c3c');
+                return;
+            }
+            game.bombPlacing = !game.bombPlacing;
+            if (game.bombPlacing) {
+                skillBadge.textContent = '👆 点击草坪';
+                skillBtn.style.borderColor = '#ff6b6b';
+                showStatus('💥 点击草坪放置樱桃炸弹', '#f39c12');
+            } else {
+                skillBadge.textContent = '点击格子放置';
+                skillBtn.style.borderColor = '#f1c40f';
+            }
+        });
+
+        function pointerHandler(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = W / rect.width;
+            const scaleY = H / rect.height;
+            const cx = (e.clientX - rect.left) * scaleX;
+            const cy = (e.clientY - rect.top) * scaleY;
+            handleClick(cx, cy);
+        }
+        canvas.addEventListener('pointerdown', pointerHandler);
+
+        function handleClick(cx, cy) {
+            if (game.running && game.question) {
+                let q = game.question;
+                if (q._buttons) {
+                    for (let btn of q._buttons) {
+                        if (cx >= btn.x && cx <= btn.x + btn.w && cy >= btn.y && cy <= btn.y + btn.h) {
+                            if (btn.value === q.answer) {
+                                game.sun += 25;
+                                game.totalCorrect++;
+                                game.score += 10;
+                                sound.play('correct');
+                                showStatus('✅ +25 阳光', '#2ecc71');
+                            } else {
+                                game.sun = Math.max(0, game.sun - 5);
+                                game.totalWrong++;
+                                sound.play('wrong');
+                                showStatus('❌ -5 阳光', '#e74c3c');
+                            }
+                            game.question = null;
+                            game.questionCooldown = 0.8;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (game.running && !game.gameOver && game.bombPlacing && game.bombReady) {
+                let col = Math.floor((cx - gridOffsetX) / cellWidth);
+                let row = Math.floor((cy - gridOffsetY) / cellHeight);
+                if (row >= 0 && row < ROWS && col >= 0 && col < COLS) {
+                    if (placeCherryBomb(row, col)) {
+                        game.bombReady = false;
+                        game.bombCooldown = 5.0;
+                        game.bombPlacing = false;
+                        skillBtn.style.borderColor = '#f1c40f';
+                        skillBtn.classList.remove('ready');
+                        skillBtn.classList.add('cooldown');
+                        skillBadge.textContent = '5s';
+                        showStatus('⏳ 樱桃炸弹冷却中 (5s)', '#f1c40f');
+                    }
+                } else {
+                    showStatus('❌ 请点击草坪区域', '#e74c3c');
+                }
+                return;
+            }
+
+            if (game.bombPlacing) {
+                game.bombPlacing = false;
+                skillBtn.style.borderColor = '#f1c40f';
+                skillBadge.textContent = '点击格子放置';
+                showStatus('❌ 已取消放置', '#e74c3c');
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'b' || e.key === 'B') skillBtn.click();
+        });
+
+        // ---------- 启动 ----------
+        (function initGame() {
+            if (isActivated) {
+                overlay.classList.remove('hidden');
+            }
+            requestAnimationFrame(gameLoop);
+            console.log('🎮 口算塔防已加载');
+            console.log('🆔 设备ID:', DEVICE_ID);
+        })();
+    </script>
+</body>
+</html>
