@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  口算塔防 - 激活码服务器（一码一设备版）
 //  一个激活码只能绑定一台设备，绑定后立即失效
 // ============================================================
@@ -232,7 +232,10 @@ app.post('/admin/revoke', (req, res) => {
 function generateCode() {
     return Math.random().toString(36).substring(2, 6).toUpperCase() +
            Math.random().toString(36).substring(2, 6).toUpperCase();
-}
+}// 添加一个轻量级健康检查接口，供 Cron-job 使用
+app.get('/health', (req, res) => {
+    res.send('OK');
+});
 
 // ---------- 启动服务器 ----------
 app.listen(PORT, () => {
