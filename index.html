@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
@@ -46,6 +46,37 @@
             background: #4a7c3f;
             cursor: pointer;
             touch-action: none;
+        }
+        /* 横屏提示 - 改为由 JS 控制显示 */
+        #rotateHint {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.92);
+            color: white;
+            font-size: 24px;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 999;
+            text-align: center;
+            padding: 40px;
+        }
+        #rotateHint .icon {
+            font-size: 80px;
+            animation: rotatePhone 2s infinite;
+        }
+        @keyframes rotatePhone {
+            0%,
+            100% {
+                transform: rotate(0deg);
+            }
+            50% {
+                transform: rotate(90deg);
+            }
         }
         #overlay,
         #activatorOverlay {
@@ -178,19 +209,21 @@
         #statusMsg.show {
             opacity: 1;
         }
+        /* ---------- 倒计时：放在第一列草坪上方 ---------- */
         #timeDisplay {
             position: absolute;
-            top: 50px;
-            left: 20px;
+            top: 130px;          /* GY - 10，放在网格上方 */
+            left: 275px;         /* GX，与第一列左对齐 */
             background: rgba(0, 0, 0, .7);
             color: #f1c40f;
-            padding: 4px 18px;
-            border-radius: 16px;
-            font-size: clamp(20px, 2.8vw, 34px);
+            padding: 2px 12px;
+            border-radius: 12px;
+            font-size: clamp(16px, 1.8vw, 24px);  /* 调小 */
             font-weight: 700;
             z-index: 3;
             border: 2px solid #f1c40f;
-            letter-spacing: 2px;
+            letter-spacing: 1px;
+            transform: none;
         }
         #titleDisplay {
             position: absolute;
@@ -363,15 +396,20 @@
             font-weight: 700;
             cursor: pointer;
         }
+        /* 横屏提示 - 默认隐藏，由 JS 控制 */
+        #rotateHint {
+            display: none !important;  /* 由 JS 接管 */
+        }
+        /* 手机小屏横屏适配 */
         @media (max-width:600px) and (orientation:landscape) {
             #gameWrapper {
                 border-radius: 0;
             }
             #timeDisplay {
-                top: 40px;
-                left: 10px;
-                font-size: clamp(16px, 2vw, 24px);
-                padding: 2px 12px;
+                top: 115px;
+                left: 275px;
+                font-size: clamp(12px, 1.6vw, 18px);
+                padding: 1px 8px;
             }
             #titleDisplay {
                 top: 10px;
@@ -413,12 +451,45 @@
                 font-size: 12px;
             }
         }
+        /* 强制横屏提示 - 用于不支持 orientation 的浏览器 */
+        .force-landscape-hint {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            font-size: 24px;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 999;
+            text-align: center;
+            padding: 40px;
+        }
+        .force-landscape-hint .icon {
+            font-size: 80px;
+            animation: rotatePhone 2s infinite;
+        }
+        .force-landscape-hint.show {
+            display: flex;
+        }
     </style>
 </head>
 <body>
 
     <div id="gameWrapper">
         <canvas id="gameCanvas" width="1600" height="900"></canvas>
+
+        <!-- 横屏提示（由 JS 控制显示） -->
+        <div id="rotateHint" class="force-landscape-hint">
+            <div class="icon">📱</div>
+            <p style="margin-top:20px;">请将手机<b>横屏</b>玩游戏</p>
+            <p style="font-size:16px; opacity:0.6; margin-top:10px;">转动手机后自动进入</p>
+        </div>
+
         <div id="timeDisplay">⏱️ 10:00</div>
         <div id="titleDisplay">🏫 陈老师原创制作</div>
         <div id="statusMsg">✅ +25 阳光</div>
@@ -457,7 +528,7 @@
             </div>
             <div style="font-size:clamp(12px,1.4vw,18px);opacity:.9;">🌱 设置每列种植的植物（从左到右）</div>
             <div class="col-settings" id="colSettings"></div>
-            <button class="btn active" id="startBtn">🌞 横屏开始游戏</button>
+            <button class="btn active" id="startBtn">🌞 开始游戏</button>
             <div style="font-size:clamp(10px,1.1vw,13px);opacity:.5;">答对获得阳光依难度而定 · 答错 -5 ☀️ · 坚持10分钟胜利！</div>
         </div>
 
@@ -471,9 +542,65 @@
 
     <script>
         // ============================================================
-        //  口算塔防 - 优化版
-        //  功能完整，代码精简
+        //  口算塔防 - 优化版 + 横屏锁定 + 倒计时位置调整
         // ============================================================
+
+        // ---------- 横屏控制 ----------
+        const rotateHint = document.getElementById('rotateHint');
+        const gameWrapper = document.getElementById('gameWrapper');
+
+        function checkOrientation() {
+            if (window.innerHeight > window.innerWidth) {
+                // 竖屏：显示提示
+                rotateHint.classList.add('show');
+            } else {
+                rotateHint.classList.remove('show');
+            }
+        }
+
+        // 尝试锁定横屏（需用户手势触发）
+        async function lockLandscape() {
+            try {
+                if (screen.orientation && screen.orientation.lock) {
+                    await screen.orientation.lock('landscape');
+                }
+            } catch (e) {
+                // 不支持锁定，忽略
+            }
+            // 检查是否成功
+            setTimeout(checkOrientation, 300);
+        }
+
+        // 页面加载时检查
+        window.addEventListener('load', () => {
+            checkOrientation();
+            // 如果当前是竖屏，尝试锁定（但需要用户手势，这里可能无效）
+            if (window.innerHeight > window.innerWidth) {
+                // 显示提示
+                rotateHint.classList.add('show');
+            }
+        });
+
+        // 窗口变化时检查
+        window.addEventListener('resize', checkOrientation);
+
+        // 在用户点击激活或开始游戏时尝试锁定横屏
+        const originalActivationHandler = document.getElementById('activationBtn').onclick;
+        document.getElementById('activationBtn').addEventListener('click', function() {
+            lockLandscape();
+        });
+
+        const originalStartHandler = document.getElementById('startBtn').onclick;
+        document.getElementById('startBtn').addEventListener('click', function() {
+            lockLandscape();
+        });
+
+        // 也监听触摸事件
+        document.addEventListener('touchstart', function() {
+            if (window.innerHeight > window.innerWidth) {
+                lockLandscape();
+            }
+        }, { once: true });
 
         // ---------- 常量与配置 ----------
         const API_BASE = '';
@@ -712,8 +839,12 @@
                 activationStatus.className = 'status-msg error'; }
         }
 
-        activationBtn.onclick = submitActivation;
-        activationInput.onkeydown = e => { if (e.key === 'Enter') submitActivation(); };
+        activationBtn.onclick = function() {
+            lockLandscape();
+            submitActivation();
+        };
+        activationInput.onkeydown = e => { if (e.key === 'Enter') { lockLandscape();
+                submitActivation(); } };
         checkActivation();
 
         // ---------- 列选择器 ----------
@@ -1024,7 +1155,6 @@
                 }
             }
 
-            // 口算
             if (G.qCooldown > 0) G.qCooldown -= dt;
             else if (!G.question) { G.question = genQuestion(G.age);
                 G.qTimer = 8; } else {
@@ -1044,7 +1174,6 @@
 
             if (G.frame % 24 === 0) autoPlant();
 
-            // 植物攻击
             for (const p of G.plants) {
                 if (p.hp <= 0 || p.atk <= 0) continue;
                 let target = null,
@@ -1059,7 +1188,6 @@
                         plantAttack(p, target); } }
             }
 
-            // 僵尸移动
             const doorRight = HOUSE_X + 12 + DOOR_W;
             for (const z of G.zombies) {
                 if (z.hp <= 0) continue;
@@ -1096,7 +1224,6 @@
 
             updateProjectiles();
 
-            // 生成僵尸
             const prog = Math.min(elapsed / 600, 1);
             G.spawnInterval = 2.5 - (2.5 - .4) * prog;
             G.zombieTimer += dt;
@@ -1109,7 +1236,6 @@
 
             G.plants = G.plants.filter(p => p.hp > 0);
             G.zombies = G.zombies.filter(z => z.hp > 0);
-            updateRowCounts();
 
             for (let i = G.particles.length - 1; i >= 0; i--) {
                 const p = G.particles[i];
@@ -1120,7 +1246,6 @@
                 if (--p.life <= 0) G.particles.splice(i, 1);
             }
 
-            // 樱桃炸弹
             if (!G.bombReady) {
                 G.bombCooldown -= dt;
                 if (G.bombCooldown <= 0) { G.bombReady = true;
@@ -1134,10 +1259,6 @@
                 skillBadge.textContent = G.bombPlacing ? '👆 点击草坪' : '点击格子放置';
             }
             skillBtn.style.opacity = G.sun < CHERRY.cost ? '.5' : '1';
-        }
-
-        function updateRowCounts() {
-            // used for planting strategy
         }
 
         function updateTimeDisplay() {
@@ -1157,7 +1278,6 @@
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, W, H);
 
-            // 网格
             for (let r = 0; r < ROWS; r++)
                 for (let c = 0; c < COLS; c++) {
                     const x = GX + c * CW,
@@ -1172,10 +1292,8 @@
                         ctx.fillRect(x, y, CW, CH); }
                 }
 
-            // 房子与家园名
             const hs = HOUSE_SZ,
                 hx = HOUSE_X;
-            // 家园名
             if (G.homeName) {
                 const chars = G.homeName.slice(0, 10).split('');
                 const sz = 36,
@@ -1193,7 +1311,6 @@
                 ctx.restore();
             }
 
-            // 5个小房子
             for (let r = 0; r < ROWS; r++) {
                 const hy = GY + r * CH + (CH - hs) / 2;
                 ctx.shadowBlur = 10;
@@ -1246,7 +1363,6 @@
             }
             ctx.shadowBlur = 0;
 
-            // 植物
             for (const p of G.plants) {
                 if (p.hp <= 0) continue;
                 const def = getPlant(p.type);
@@ -1265,7 +1381,6 @@
                 ctx.fillRect(p.x - 30, p.y - 42, 60 * hp, 8);
             }
 
-            // 僵尸
             for (const z of G.zombies) {
                 if (z.hp <= 0) continue;
                 ctx.font = '56px ' + EMOJI_FONT;
@@ -1289,7 +1404,6 @@
                 ctx.fillText(`${Math.ceil(z.hp)}/${z.maxHp}`, z.x, z.y - 58);
             }
 
-            // 子弹
             for (const p of G.projectiles) {
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
@@ -1300,7 +1414,6 @@
                 ctx.shadowBlur = 0;
             }
 
-            // 粒子
             for (const p of G.particles) {
                 ctx.globalAlpha = p.life / 40;
                 ctx.beginPath();
@@ -1310,7 +1423,6 @@
             }
             ctx.globalAlpha = 1;
 
-            // 顶部信息
             ctx.fillStyle = 'rgba(0,0,0,.5)';
             ctx.fillRect(0, 0, W, 60);
             ctx.fillStyle = '#fff';
@@ -1321,9 +1433,8 @@
             ctx.fillText(`❤️ ${G.houseHP}`, 160, 44);
             ctx.fillText(`✅ ${G.correct}`, 430, 44);
             ctx.fillText(`❌ ${G.wrong}`, 530, 44);
-            ctx.fillText(`👶 ${G.age}岁`, 1100, 44);
+            ctx.fillText(`👶 ${G.age}岁`, 680, 44);
 
-            // 口算题
             if (G.question && G.running) {
                 const q = G.question,
                     cx = W / 2,
@@ -1335,7 +1446,7 @@
                 ctx.roundRect(cx - 380, cy - 40, 760, 80, 20);
                 ctx.fill();
                 ctx.shadowBlur = 0;
-                ctx.fillStyle = '#f39c12';
+                ctx.fillStyle = '#ffffff';
                 ctx.font = 'bold 64px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -1378,18 +1489,16 @@
                 ctx.fillRect(optCX - 150, optY + 45, 300 * Math.max(0, tp), 6);
             }
 
-            // 右下植物顺序
             ctx.fillStyle = 'rgba(0,0,0,.5)';
             ctx.fillRect(W - 300, H - 50, 280, 36);
             ctx.fillStyle = '#f1c40f';
-            ctx.font = '24px sans-serif';
+            ctx.font = '18px sans-serif';
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
             const hints = G.colMap.map(id => { const d = getPlant(id); return d ? d.emoji : '?'; });
             ctx.fillText(`📋 ${hints.join(' ')}`, W - 20, H - 30);
         }
 
-        // 扩展 roundRect
         if (!CanvasRenderingContext2D.prototype.roundRect) {
             CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
                 if (r > w / 2) r = w / 2;
@@ -1407,7 +1516,6 @@
             };
         }
 
-        // ---------- 结束 ----------
         let statusTimeout;
 
         function showStatus(msg, color = '#f1c40f') {
@@ -1455,7 +1563,6 @@
             showSetup(G.victory);
         };
 
-        // ---------- 游戏循环 ----------
         let lastTime = 0;
 
         function loop(timestamp) {
@@ -1466,9 +1573,9 @@
             requestAnimationFrame(loop);
         }
 
-        // ---------- 启动 ----------
         function startGame() {
             if (!isActivated) { checkActivation(); return; }
+            lockLandscape(); // 尝试锁定横屏
             sound.resume();
             G.age = clamp(parseInt(ageInput.value) || 8, 4, 18);
             G.homeName = nameInput.value.trim().slice(0, 10) || '我的家园';
@@ -1512,7 +1619,10 @@
         }
 
         // ---------- 事件 ----------
-        startBtn.onclick = startGame;
+        startBtn.onclick = function() {
+            lockLandscape();
+            startGame();
+        };
         ageInput.onchange = function() { this.value = clamp(parseInt(this.value) || 8, 4, 18); };
 
         skillBtn.onclick = function(e) {
@@ -1535,7 +1645,6 @@
         });
 
         function handleClick(cx, cy) {
-            // 答题
             if (G.running && G.question && G.question._buttons) {
                 for (const btn of G.question._buttons) {
                     if (cx >= btn.x && cx <= btn.x + btn.w && cy >= btn.y && cy <= btn.y + btn.h) {
@@ -1562,7 +1671,6 @@
                 }
             }
 
-            // 樱桃炸弹
             if (G.running && !G.gameOver && G.bombPlacing && G.bombReady) {
                 const col = Math.floor((cx - GX) / CW);
                 const row = Math.floor((cy - GY) / CH);
@@ -1592,6 +1700,8 @@
 
         // ---------- 初始化 ----------
         overlay.classList.add('show');
+        // 第一次检查横屏
+        setTimeout(checkOrientation, 500);
         requestAnimationFrame(loop);
         console.log('🎮 口算塔防 优化版已加载');
     </script>
