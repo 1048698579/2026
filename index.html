@@ -1080,7 +1080,7 @@
 
             if (G.qCooldown > 0) G.qCooldown -= dt;
             else if (!G.question) { G.question = genQuestion(G.age);
-                G.qTimer = 8; } else {
+                G.qTimer = 15; } else {
                 G.qTimer -= dt;
                 if (G.qTimer <= 0) {
                     G.wrongQuestions.push({ question: G.question.text, correctAnswer: G.question.answer,
