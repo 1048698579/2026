@@ -1,6 +1,6 @@
-﻿// ============================================================
-//  口算塔防 - 激活码服务器（一码一设备版）
-//  一个激活码只能绑定一台设备，绑定后立即失效
+// ============================================================
+//  口算塔防 - 激活码服务器（支持最大绑定设备数 + 有效期）
+//  每个激活码可自定义绑定设备数及过期时间
 // ============================================================
 
 const express = require('express');
@@ -12,21 +12,22 @@ app.use(express.json());
 app.use(express.static('./'));
 
 // ---------- 数据存储（内存） ----------
-const codes = {};        // { 'CODE': { status, used_by, activated_at, expires_at } }
-// status: 'active' | 'used' | 'revoked' | 'expired'
+const codes = {};
 
-// 默认内置激活码（每个只能用一次）
+// 默认激活码（每个可用 1 次，有效期 365 天）
 function initDefaultCodes() {
     const defaultCodes = ['ABC123', 'DEF456', 'GHI789', 'TD2024', 'PLAY2024', 'GAME888'];
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 365);
-    
+
     for (const code of defaultCodes) {
         if (!codes[code]) {
             codes[code] = {
-                status: 'active',           // active / used / revoked / expired
-                used_by: null,              // 绑定的设备ID
-                activated_at: null,         // 激活时间
+                max_devices: 1,               // 最大绑定设备数
+                used_count: 0,                // 已绑定设备数
+                used_by: [],                  // 已绑定的设备ID列表
+                status: 'active',             // active / revoked / expired
+                activated_at: null,           // 首次激活时间
                 expires_at: expiresAt.toISOString(),
                 created_at: new Date().toISOString()
             };
@@ -34,6 +35,12 @@ function initDefaultCodes() {
     }
 }
 initDefaultCodes();
+
+// ---------- 工具函数 ----------
+function generateCode() {
+    return Math.random().toString(36).substring(2, 6).toUpperCase() +
+           Math.random().toString(36).substring(2, 6).toUpperCase();
+}
 
 // ---------- API：验证激活码 ----------
 app.post('/api/verify', (req, res) => {
@@ -43,55 +50,53 @@ app.post('/api/verify', (req, res) => {
     }
 
     const upperCode = code.toUpperCase().trim();
-    const codeInfo = codes[upperCode];
-    
-    // 1. 检查激活码是否存在
-    if (!codeInfo) {
+    const info = codes[upperCode];
+
+    if (!info) {
         return res.json({ success: false, message: '❌ 激活码不存在' });
     }
 
-    // 2. 检查是否过期
-    if (codeInfo.expires_at && new Date(codeInfo.expires_at) < new Date()) {
-        codeInfo.status = 'expired';
+    // 检查状态
+    if (info.status === 'revoked') {
+        return res.json({ success: false, message: '❌ 该激活码已被作废' });
+    }
+    if (info.expires_at && new Date(info.expires_at) < new Date()) {
+        info.status = 'expired';
         return res.json({ success: false, message: '❌ 激活码已过期' });
     }
 
-    // 3. 检查是否被作废
-    if (codeInfo.status === 'revoked') {
-        return res.json({ success: false, message: '❌ 该激活码已被作废' });
+    // 检查设备是否已绑定此码
+    if (info.used_by.includes(device_id)) {
+        return res.json({
+            success: true,
+            message: '✅ 已绑定（当前设备）',
+            code: upperCode,
+            is_new: false
+        });
     }
 
-    // 4. 🔥 核心修复：检查是否已被使用
-    if (codeInfo.status === 'used') {
-        // 如果已被使用，检查是不是同一台设备（防止重复绑定）
-        if (codeInfo.used_by === device_id) {
-            return res.json({
-                success: true,
-                message: '✅ 已激活（当前设备）',
-                code: upperCode,
-                is_new: false
-            });
-        } else {
-            // 已被其他设备使用
-            return res.json({
-                success: false,
-                message: '❌ 该激活码已被其他设备使用，无法再次激活'
-            });
-        }
+    // 检查是否达到最大绑定数
+    if (info.used_count >= info.max_devices) {
+        return res.json({
+            success: false,
+            message: `❌ 已达最大绑定数（${info.max_devices}台设备）`
+        });
     }
 
-    // 5. 🔥 激活码是 active 状态，执行绑定
-    // 标记为已使用
-    codeInfo.status = 'used';
-    codeInfo.used_by = device_id;
-    codeInfo.activated_at = new Date().toISOString();
+    // 绑定新设备
+    info.used_count += 1;
+    info.used_by.push(device_id);
+    if (!info.activated_at) {
+        info.activated_at = new Date().toISOString();
+    }
 
     return res.json({
         success: true,
-        message: '✅ 激活成功！该激活码已绑定当前设备',
+        message: `✅ 激活成功！已绑定 ${info.used_count}/${info.max_devices} 台设备`,
         code: upperCode,
         is_new: true,
-        is_first_use: true
+        bound_devices: info.used_count,
+        max_devices: info.max_devices
     });
 });
 
@@ -102,54 +107,44 @@ app.post('/api/check', (req, res) => {
         return res.json({ success: false, activated: false, message: '缺少设备ID' });
     }
 
-    // 遍历所有激活码，查找该设备是否已绑定
-    let found = false;
-    let foundCode = null;
-    let foundInfo = null;
-
     for (const [code, info] of Object.entries(codes)) {
-        if (info.status === 'used' && info.used_by === device_id) {
-            found = true;
-            foundCode = code;
-            foundInfo = info;
-            break;
+        if (info.used_by.includes(device_id)) {
+            // 检查激活码状态
+            if (info.status === 'revoked') {
+                return res.json({ success: false, activated: false, message: '❌ 激活码已被作废' });
+            }
+            if (info.expires_at && new Date(info.expires_at) < new Date()) {
+                info.status = 'expired';
+                return res.json({ success: false, activated: false, message: '❌ 激活码已过期' });
+            }
+            return res.json({
+                success: true,
+                activated: true,
+                code: code,
+                activated_at: info.activated_at,
+                bound_devices: info.used_count,
+                max_devices: info.max_devices,
+                message: '✅ 已激活'
+            });
         }
     }
 
-    if (!found) {
-        return res.json({ success: false, activated: false, message: '未激活' });
-    }
-
-    // 检查激活码是否被作废或过期
-    if (foundInfo.status === 'revoked') {
-        return res.json({ success: false, activated: false, message: '❌ 激活码已被作废' });
-    }
-    if (foundInfo.expires_at && new Date(foundInfo.expires_at) < new Date()) {
-        foundInfo.status = 'expired';
-        return res.json({ success: false, activated: false, message: '❌ 激活码已过期' });
-    }
-
-    return res.json({
-        success: true,
-        activated: true,
-        code: foundCode,
-        activated_at: foundInfo.activated_at,
-        message: '✅ 已激活'
-    });
+    return res.json({ success: false, activated: false, message: '未激活' });
 });
 
-// ---------- API：管理员 - 生成激活码 ----------
+// ---------- API：管理员 - 生成激活码（支持自定义设备数和有效期） ----------
 app.get('/admin/generate', (req, res) => {
     const password = req.query.password;
     const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
-    
+
     if (password !== adminPass) {
         return res.json({ success: false, message: '❌ 管理员密码错误' });
     }
 
     const count = parseInt(req.query.count) || 1;
-    const expireDays = parseInt(req.query.expire_days) || 365;
-    
+    const maxDevices = parseInt(req.query.max_devices) || 1;      // 默认 1 台
+    const expireDays = parseInt(req.query.expire_days) || 365;    // 默认 365 天
+
     const newCodes = [];
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expireDays);
@@ -160,8 +155,10 @@ app.get('/admin/generate', (req, res) => {
             code = generateCode();
         }
         codes[code] = {
+            max_devices: maxDevices,
+            used_count: 0,
+            used_by: [],
             status: 'active',
-            used_by: null,
             activated_at: null,
             expires_at: expiresAt.toISOString(),
             created_at: new Date().toISOString()
@@ -172,32 +169,32 @@ app.get('/admin/generate', (req, res) => {
     res.json({
         success: true,
         codes: newCodes,
+        max_devices: maxDevices,
         expire_days: expireDays,
         count: newCodes.length,
-        message: `成功生成 ${newCodes.length} 个激活码（每个仅限一台设备使用）`
+        message: `成功生成 ${newCodes.length} 个激活码，每个可绑定 ${maxDevices} 台设备，有效期 ${expireDays} 天`
     });
 });
 
-// ---------- API：管理员 - 查看激活码状态 ----------
+// ---------- API：管理员 - 查看所有激活码状态 ----------
 app.get('/admin/list', (req, res) => {
     const password = req.query.password;
     const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
-    
+
     if (password !== adminPass) {
         return res.json({ success: false, message: '❌ 管理员密码错误' });
     }
 
-    const result = [];
-    for (const [code, info] of Object.entries(codes)) {
-        result.push({
-            code: code,
-            status: info.status,
-            used_by: info.used_by || '未使用',
-            activated_at: info.activated_at || '未激活',
-            expires_at: info.expires_at,
-            created_at: info.created_at
-        });
-    }
+    const result = Object.entries(codes).map(([code, info]) => ({
+        code,
+        max_devices: info.max_devices,
+        used_count: info.used_count,
+        used_by: info.used_by,
+        status: info.status,
+        activated_at: info.activated_at || '未激活',
+        expires_at: info.expires_at,
+        created_at: info.created_at
+    }));
 
     res.json({
         success: true,
@@ -206,11 +203,39 @@ app.get('/admin/list', (req, res) => {
     });
 });
 
+// ---------- API：管理员 - 查询单个激活码详情 ----------
+app.get('/admin/info', (req, res) => {
+    const password = req.query.password;
+    const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
+
+    if (password !== adminPass) {
+        return res.json({ success: false, message: '❌ 管理员密码错误' });
+    }
+
+    const code = req.query.code?.toUpperCase().trim();
+    if (!code || !codes[code]) {
+        return res.json({ success: false, message: '激活码不存在' });
+    }
+
+    const info = codes[code];
+    res.json({
+        success: true,
+        code,
+        max_devices: info.max_devices,
+        used_count: info.used_count,
+        used_by: info.used_by,
+        status: info.status,
+        activated_at: info.activated_at || '未激活',
+        expires_at: info.expires_at,
+        created_at: info.created_at
+    });
+});
+
 // ---------- API：管理员 - 作废激活码 ----------
 app.post('/admin/revoke', (req, res) => {
     const { code, password } = req.body;
     const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
-    
+
     if (password !== adminPass) {
         return res.json({ success: false, message: '❌ 管理员密码错误' });
     }
@@ -218,6 +243,10 @@ app.post('/admin/revoke', (req, res) => {
     const upperCode = code.toUpperCase().trim();
     if (!codes[upperCode]) {
         return res.json({ success: false, message: '激活码不存在' });
+    }
+
+    if (codes[upperCode].status === 'revoked') {
+        return res.json({ success: false, message: '激活码已处于作废状态' });
     }
 
     codes[upperCode].status = 'revoked';
@@ -228,11 +257,39 @@ app.post('/admin/revoke', (req, res) => {
     });
 });
 
-// ---------- 工具函数 ----------
-function generateCode() {
-    return Math.random().toString(36).substring(2, 6).toUpperCase() +
-           Math.random().toString(36).substring(2, 6).toUpperCase();
-}// 添加一个轻量级健康检查接口，供 Cron-job 使用
+// ---------- API：管理员 - 重新激活已作废的激活码 ----------
+app.post('/admin/reactivate', (req, res) => {
+    const { code, password } = req.body;
+    const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
+
+    if (password !== adminPass) {
+        return res.json({ success: false, message: '❌ 管理员密码错误' });
+    }
+
+    const upperCode = code.toUpperCase().trim();
+    if (!codes[upperCode]) {
+        return res.json({ success: false, message: '激活码不存在' });
+    }
+
+    if (codes[upperCode].status !== 'revoked') {
+        return res.json({ success: false, message: '只有已作废的激活码才能重新激活' });
+    }
+
+    codes[upperCode].status = 'active';
+    // 可选：重置有效期
+    const expireDays = parseInt(req.query.expire_days) || 365;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expireDays);
+    codes[upperCode].expires_at = expiresAt.toISOString();
+
+    res.json({
+        success: true,
+        code: upperCode,
+        message: `✅ 激活码 ${upperCode} 已重新激活，有效期延长至 ${expiresAt.toISOString().slice(0,10)}`
+    });
+});
+
+// ---------- 健康检查（供 Cron-job 使用） ----------
 app.get('/health', (req, res) => {
     res.send('OK');
 });
@@ -244,4 +301,7 @@ app.listen(PORT, () => {
     console.log('   ABC123, DEF456, GHI789, TD2024, PLAY2024, GAME888');
     console.log('🔑 管理员密码: admin123');
     console.log('📊 查看所有激活码: /admin/list?password=admin123');
+    console.log('📝 生成激活码示例:');
+    console.log(`   http://localhost:${PORT}/admin/generate?password=admin123&count=5&max_devices=3&expire_days=90`);
+    console.log('❤️  健康检查接口: /health');
 });
